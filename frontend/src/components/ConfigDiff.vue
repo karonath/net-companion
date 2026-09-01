@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { api } from '../api'
 import { state, copyText } from '../state'
+import HelpNote from './HelpNote.vue'
 
 const deviceIp = ref('')
 
@@ -51,6 +52,12 @@ async function run() {
 <template>
   <div class="cd">
     <h3>Config-Diff (running vs startup)</h3>
+    <HelpNote>
+      Se connecte en SSH à un équipement et compare sa config <em>active</em>
+      (running) à celle <em>sauvegardée</em> (startup) : révèle les changements
+      non enregistrés (vert = ajouté, rouge = retiré). Pour comparer dans le
+      temps ou vs une baseline, vois l'onglet Configs.
+    </HelpNote>
     <button v-if="state.sim.enabled" class="demo" @click="useDemo">
       Utiliser l'équipement de démo ({{ state.sim.ssh }})
     </button>

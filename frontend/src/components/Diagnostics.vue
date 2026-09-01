@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { api } from '../api'
 import { state, copyText } from '../state'
+import HelpNote from './HelpNote.vue'
 
 const checks = ref([])
 const busy = ref(false)
@@ -68,6 +69,11 @@ function dotClass(status) {
 
 <template>
   <div class="diag">
+    <HelpNote>
+      Vérifie la santé réseau sans matériel : passerelle joignable, résolution
+      DNS, accès Internet, latence/jitter. En bas, deux outils à la demande :
+      test d'un port TCP (host:port) et traceroute vers une cible.
+    </HelpNote>
     <section>
       <h3>Diagnostics de connectivité</h3>
       <button class="primary" @click="run" :disabled="busy">

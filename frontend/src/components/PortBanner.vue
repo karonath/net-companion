@@ -42,7 +42,8 @@ async function locate(demo = false) {
       <button v-if="appState.sim.enabled" @click="locate(true)" :disabled="busy">
         Démo (switch simulé)
       </button>
-      <button class="primary" @click="locate(false)" :disabled="busy">
+      <button class="primary" @click="locate(false)" :disabled="busy"
+        title="Interroge le switch par SNMP pour trouver le port physique et le VLAN où ta machine est branchée. Nécessite une community SNMP dans le coffre (ou le Mode démo).">
         {{ busy ? 'Recherche…' : 'Localiser mon port' }}
       </button>
     </div>

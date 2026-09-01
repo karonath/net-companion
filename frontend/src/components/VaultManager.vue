@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../api'
+import HelpNote from './HelpNote.vue'
 
 const snmp = ref([])
 const ssh = ref([])
@@ -77,6 +78,13 @@ onMounted(load)
 
 <template>
   <div class="vault">
+    <HelpNote>
+      Trousseau chiffré (AES-256, déverrouillé par ton PIN) : stocke tes
+      communities SNMP (v2c/v3) et identifiants SSH. Ils sont réutilisés
+      automatiquement par le Port-Finder, les Voisins et le Config-Diff.
+      Renseigne une « IP de test » puis « Tester » pour valider un credential
+      avant d'aller sur le terrain.
+    </HelpNote>
     <p v-if="err" class="err">{{ err }}</p>
 
     <div class="testip">

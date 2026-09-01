@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { api } from '../api'
 import { state } from '../state'
+import HelpNote from './HelpNote.vue'
 
 const devicesText = ref('')
 const busy = ref(false)
@@ -61,7 +62,12 @@ onMounted(loadDevices)
 <template>
   <div class="configs">
     <h3>Sauvegarde de configuration</h3>
-    <p class="muted">Backup running-config (SSH) de plusieurs équipements + détection de dérive.</p>
+    <HelpNote>
+      Sauvegarde la running-config de plusieurs équipements par SSH et détecte
+      la <strong>dérive</strong> : définis une « baseline » (config approuvée)
+      puis, à chaque backup, l'outil montre ce qui a changé vs cette référence.
+      Nécessite un credential SSH dans le coffre (ou le Mode démo).
+    </HelpNote>
 
     <button v-if="state.sim.enabled" class="demo" @click="useDemo">Utiliser l'équipement de démo</button>
     <textarea v-model="devicesText" rows="3" placeholder="IP par ligne (ex: 192.168.1.1)"></textarea>

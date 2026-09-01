@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { api } from '../api'
 import { state } from '../state'
+import HelpNote from './HelpNote.vue'
 
 const deviceIp = ref('')
 const list = ref([])
@@ -31,7 +32,13 @@ async function discover(demo = false) {
 <template>
   <div class="nb">
     <h3>Voisinage LLDP / CDP</h3>
-    <p class="muted">Interroge un équipement par SNMP pour lister ses voisins (switch-à-switch).</p>
+    <HelpNote>
+      Interroge un équipement par SNMP (LLDP-MIB / CDP-MIB) pour lister ses
+      voisins directs : « ce switch voit tel switch sur tel port ». C'est la
+      vraie carte de proximité réseau, fiable (contrairement à l'écoute passive
+      de l'onglet Blocage qui exige d'être branché sans IP). Nécessite un
+      credential SNMP dans le coffre (ou le Mode démo).
+    </HelpNote>
 
     <button v-if="state.sim.enabled" class="demo" @click="discover(true)" :disabled="busy">
       Démo (switch simulé)

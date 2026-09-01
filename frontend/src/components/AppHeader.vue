@@ -1,8 +1,21 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../api'
+import { state } from '../state'
 
 defineEmits(['lock'])
+
+const demoBusy = ref(false)
+async function enableDemo() {
+  demoBusy.value = true
+  try {
+    state.sim = await api.simEnable()
+  } catch {
+    /* ignoré */
+  } finally {
+    demoBusy.value = false
+  }
+}
 
 const iface = ref(null)
 const gateway = ref('')
@@ -46,6 +59,13 @@ onMounted(load)
       <span v-if="gateway" class="tag muted">GW {{ gateway }}</span>
       <span v-if="publicip" class="tag muted">WAN {{ publicip }}</span>
 
+      <span v-if="state.sim.enabled" class="tag demo">
+        <span class="dot orange"></span> Simulateur actif
+      </span>
+      <button v-else @click="enableDemo" :disabled="demoBusy" title="Démarrer un équipement simulé pour tester sans matériel">
+        {{ demoBusy ? '…' : 'Mode démo' }}
+      </button>
+
       <span class="tag"><span class="dot green"></span> Coffre déverrouillé</span>
       <button class="danger" @click="$emit('lock')">Verrouiller</button>
     </div>
@@ -75,4 +95,5 @@ onMounted(load)
   gap: 0.6rem;
   flex-wrap: wrap;
 }
+.tag.demo { border-color: var(--orange); color: var(--orange); }
 </style>
