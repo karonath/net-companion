@@ -108,6 +108,8 @@ func Register(mux *http.ServeMux, v *vault.Vault) {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
+
+	registerNetwork(mux, v)
 }
 
 func decodePIN(w http.ResponseWriter, r *http.Request) (string, bool) {
