@@ -1,10 +1,8 @@
 package radar
 
 import (
-	"errors"
 	"net"
 	"strconv"
-	"syscall"
 	"time"
 
 	"golang.org/x/net/icmp"
@@ -22,17 +20,15 @@ type TCPProber struct {
 	Timeout time.Duration
 }
 
-// Probe renvoie true si un port accepte la connexion, ou la refuse
-// explicitement (« connection refused » = hôte présent, port fermé).
+// Probe renvoie true uniquement si un port accepte la connexion. On ne traite
+// PAS « connection refused » comme vivant : certains points d'accès Wi-Fi
+// renvoient un RST pour toutes les IP, ce qui produirait des faux positifs.
 func (p TCPProber) Probe(ip string) bool {
 	for _, port := range p.Ports {
 		addr := net.JoinHostPort(ip, strconv.Itoa(port))
 		conn, err := net.DialTimeout("tcp", addr, p.Timeout)
 		if err == nil {
 			_ = conn.Close()
-			return true
-		}
-		if errors.Is(err, syscall.ECONNREFUSED) {
 			return true
 		}
 	}

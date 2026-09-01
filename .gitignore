@@ -14,3 +14,4 @@ Thumbs.db
 
 # Artefact de link Go (binaire verrouillé pendant un rebuild)
 backend/*.exe~
+backend/net-companion-dbg.exe
