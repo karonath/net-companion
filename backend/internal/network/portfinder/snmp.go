@@ -1,6 +1,7 @@
 package portfinder
 
 import (
+	"net"
 	"strconv"
 	"time"
 
@@ -12,11 +13,24 @@ type goSNMP struct {
 	conn *gosnmp.GoSNMP
 }
 
+// splitTargetPort sépare "host[:port]" ; port par défaut = 161.
+func splitTargetPort(target string) (host string, port uint16) {
+	if h, p, err := net.SplitHostPort(target); err == nil {
+		if n, err := strconv.Atoi(p); err == nil && n > 0 && n <= 65535 {
+			return h, uint16(n)
+		}
+		return h, 161
+	}
+	return target, 161
+}
+
 // NewGoSNMP ouvre une session SNMP v2c ; le second retour ferme la session.
+// target accepte "ip" ou "ip:port".
 func NewGoSNMP(target, community string) (SNMPClient, func() error, error) {
+	host, port := splitTargetPort(target)
 	conn := &gosnmp.GoSNMP{
-		Target:    target,
-		Port:      161,
+		Target:    host,
+		Port:      port,
 		Community: community,
 		Version:   gosnmp.Version2c,
 		Timeout:   2 * time.Second,

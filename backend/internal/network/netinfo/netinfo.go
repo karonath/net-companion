@@ -58,6 +58,15 @@ func LocalInterface() (models.InterfaceInfo, error) {
 	return selectInterface(cands)
 }
 
+// ReverseDNS renvoie le nom d'hôte (PTR) associé à ip, ou "" si aucun.
+func ReverseDNS(ip string) string {
+	names, err := net.LookupAddr(ip)
+	if err != nil || len(names) == 0 {
+		return ""
+	}
+	return strings.TrimSuffix(names[0], ".")
+}
+
 // DefaultGateway renvoie l'IP de la passerelle par défaut.
 func DefaultGateway() (string, error) {
 	ip, err := gateway.DiscoverGateway()
