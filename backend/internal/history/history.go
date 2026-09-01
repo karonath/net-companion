@@ -12,6 +12,8 @@ import (
 type Snapshot struct {
 	ID        string               `json:"id"`
 	Timestamp time.Time            `json:"timestamp"`
+	Label     string               `json:"label,omitempty"`
+	Notes     string               `json:"notes,omitempty"`
 	Interface models.InterfaceInfo `json:"interface"`
 	Gateway   string               `json:"gateway"`
 	Hosts     []models.Host        `json:"hosts"`

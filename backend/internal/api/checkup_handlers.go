@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
 	"sync"
@@ -21,6 +22,14 @@ func registerCheckup(mux *http.ServeMux) {
 	store := history.NewStore(dir)
 
 	mux.HandleFunc("POST /api/checkup", func(w http.ResponseWriter, r *http.Request) {
+		var meta struct {
+			Label string `json:"label"`
+			Notes string `json:"notes"`
+		}
+		if r.Body != nil {
+			_ = json.NewDecoder(r.Body).Decode(&meta) // corps optionnel
+		}
+
 		ifi, _ := netinfo.LocalInterface()
 		gw, _ := netinfo.DefaultGateway()
 
@@ -35,6 +44,7 @@ func registerCheckup(mux *http.ServeMux) {
 		now := time.Now()
 		snap := history.Snapshot{
 			ID: history.NewID(now), Timestamp: now,
+			Label: meta.Label, Notes: meta.Notes,
 			Interface: ifi, Gateway: gw, Hosts: hosts, Diag: checks,
 		}
 
