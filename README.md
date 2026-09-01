@@ -8,12 +8,14 @@ interface dans le navigateur sur `http://127.0.0.1:8080`. Aucune installation,
 aucune dépendance, aucun fichier de config à trimballer.
 
 > **Deux éditions**
-> - **Lite (cette version)** — pensée pour la **clé USB** : portable, zéro-install,
->   tout en RAM/loopback. C'est la version que tu tiens.
-> - **Édition terrain (à venir)** — pensée pour un **nano-ordinateur** posé sur
->   site, qui ajoute la **capture passive de trames** (LLDP/CDP sans IP) via
->   Npcap + un build `-tags npcap`. Non portable (dépend de Npcap), mais plus
->   puissante quand le réseau te bloque totalement. Voir *Édition terrain* plus bas.
+> - **Lite (cette version)** — pensée pour la **clé USB** : tu la branches sur un
+>   poste, tu lances le binaire, tu pilotes dans le navigateur du poste.
+>   Portable, zéro-install, tout en RAM/loopback. C'est la version que tu tiens.
+> - **Édition terrain (vision future)** — un **nano-ordinateur** que tu poses sur
+>   site : il se branche au réseau, **capture les trames** (LLDP/CDP même sans IP)
+>   et **héberge l'interface**. Le technicien la pilote **depuis son téléphone**
+>   (app mobile ou navigateur), **sans rien installer sur le téléphone** — c'est
+>   le matériel qui fait tout. Voir *Édition terrain* plus bas.
 
 ---
 
@@ -85,21 +87,30 @@ Variable optionnelle : `NC_ADDR` pour changer l'adresse d'écoute (défaut
 
 ---
 
-## Édition terrain (nano-ordinateur, à venir)
+## Édition terrain (vision future)
 
-L'**écoute passive LLDP/CDP** capte les trames du switch **même sans adresse IP**
-(réseau/NAC totalement bloqué) — utile posté à demeure sur un nano-ordinateur.
-Elle repose sur de la capture de paquets (gopacket/pcap = cgo) et exige donc :
+**Le concept** : un **nano-ordinateur** (type Raspberry Pi) que le technicien
+pose sur site et branche au réseau. Il fait tourner Net-Companion en permanence,
+**capture passivement les trames** (LLDP/CDP — identifie switch/port *même quand
+le réseau ne donne aucune IP*) et **sert l'interface**. Le technicien s'y
+connecte **depuis son téléphone** — app mobile ou simple navigateur pointé sur
+le boîtier (idéalement via un point d'accès Wi-Fi que le boîtier diffuse).
 
-1. **Npcap** installé sur la machine (npcap.com) ;
-2. le **SDK Npcap** (en-têtes + lib) au moment du build ;
-3. un **compilateur C** (`CGO_ENABLED=1`, mingw-w64/MSYS2) ;
-4. la compilation avec le tag : `go build -tags npcap`.
+**Sans installation** : rien à installer sur le téléphone (l'UI web est déjà
+responsive), rien à installer sur le réseau du client. Tout est dans le
+matériel — on le branche, on ouvre son téléphone, on diagnostique.
 
-Ce binaire n'est alors **plus zéro-install** (il dépend de Npcap sur chaque
-cible) — c'est pourquoi il est réservé à l'édition terrain. La version **Lite**
-par défaut désactive proprement cette capture (« indisponible ») et privilégie
-le voisinage **par SNMP** (onglet Voisins), qui, lui, fonctionne sans rien.
+**Pourquoi une édition à part** : la capture passive repose sur de la capture de
+paquets bas niveau (gopacket), activée par un build `-tags npcap` :
+- sur le **nano-ordinateur Linux**, elle utilise **libpcap natif** (présent sur
+  la distribution, capture activée via les *capabilities* réseau) ;
+- sur **Windows**, l'équivalent nécessiterait **Npcap** + son SDK + un
+  compilateur C (`CGO_ENABLED=1`).
+
+Ce build **n'est plus zéro-install** (il dépend de la lib de capture) — c'est
+pourquoi il est réservé au matériel de terrain. La version **Lite** (clé USB)
+désactive proprement cette capture (« indisponible ») et privilégie le voisinage
+**par SNMP** (onglet Voisins), qui fonctionne partout sans rien installer.
 
 ---
 
