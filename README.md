@@ -81,6 +81,31 @@ d'écoute (par défaut `127.0.0.1:8080`).
 - **Port-Finder SNMP** : logique validée par tests mockés ; le chemin réseau
   réel dépend d'un équipement SNMP joignable.
 
+## Sécurité
+
+- **Coffre** chiffré AES-256-GCM, clé dérivée du PIN (Argon2id) ; secrets en RAM
+  seulement une fois déverrouillé.
+- **API locale protégée** : au démarrage, un **jeton de session** aléatoire est
+  généré et injecté dans la page servie. Chaque appel `/api/*` exige l'en-tête
+  `X-NC-Token` + une **Origin** locale. Un site web tiers ouvert dans le
+  navigateur ne peut donc pas atteindre l'API (protection CSRF / DNS-rebinding),
+  car il ne peut ni lire le jeton (CORS) ni poser l'en-tête custom.
+- **Limite assumée** : sur l'interface loopback, un *autre processus local*
+  disposant des droits de l'utilisateur peut lire la page (et donc le jeton).
+  L'isolation inter-processus locale dépasse le cadre d'un binaire portable ;
+  la menace visée ici est le navigateur.
+
+## Signature du binaire
+
+Le binaire n'est pas signé par défaut → Windows SmartScreen / macOS Gatekeeper
+peuvent alerter. Pour une diffusion, signer :
+
+- **Windows** : `signtool sign /fd SHA256 /a /tr http://timestamp.digicert.com /td SHA256 net-companion.exe`
+  (ou `osslsigncode` avec un certificat Authenticode).
+- **macOS** : `codesign --deep --options runtime --sign "Developer ID Application: …" net-companion`
+  puis notarisation (`notarytool`).
+- **Linux** : signer le paquet/dépôt (GPG) selon la distribution.
+
 ## Architecture
 
 ```

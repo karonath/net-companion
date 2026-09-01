@@ -2,6 +2,10 @@
 
 async function req(method, path, body) {
   const opts = { method, headers: {} }
+  // Jeton de session injecté par le serveur dans la page (anti-CSRF/rebinding).
+  if (typeof window !== 'undefined' && window.__NC_TOKEN__) {
+    opts.headers['X-NC-Token'] = window.__NC_TOKEN__
+  }
   if (body !== undefined) {
     opts.headers['Content-Type'] = 'application/json'
     opts.body = JSON.stringify(body)
