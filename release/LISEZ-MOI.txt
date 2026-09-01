@@ -1,0 +1,19 @@
+Net-Companion Lite — binaire portable
+=====================================
+
+Ce dossier contient l'exécutable prêt à copier sur une clé USB.
+
+UTILISATION
+-----------
+1. Copiez net-companion.exe sur votre clé USB.
+2. Sur le poste, double-cliquez net-companion.exe.
+   (Windows SmartScreen peut prévenir au 1er lancement, le binaire n'étant pas
+    signé : « Informations complémentaires » -> « Exécuter quand même ».)
+3. Le navigateur s'ouvre sur http://127.0.0.1:8080
+4. Créez un code PIN, puis cliquez « Mode démo » pour tout essayer sans matériel.
+
+Aucune installation, aucune dépendance. Tout tourne en local sur la machine.
+
+Pour arrêter : fermez la fenêtre console (ou Ctrl+C).
+
+Auteur : Charlys Menuet (Karonath).

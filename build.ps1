@@ -21,4 +21,10 @@ $code = $LASTEXITCODE
 Pop-Location
 if ($code -ne 0) { throw "go build a échoué ($code)" }
 
+# Dépose le binaire prêt-à-copier (clé USB) dans release\
+$release = Join-Path $root "release"
+New-Item -ItemType Directory -Force -Path $release | Out-Null
+Copy-Item (Join-Path $root "backend\net-companion.exe") (Join-Path $release "net-companion.exe") -Force
+
 Write-Host "==> OK : backend\net-companion.exe"
+Write-Host "==> Prêt pour clé USB : release\net-companion.exe"
