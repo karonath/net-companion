@@ -1,11 +1,20 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import VaultManager from './VaultManager.vue'
 import ConfigDiff from './ConfigDiff.vue'
 import NacPanel from './NacPanel.vue'
 import Diagnostics from './Diagnostics.vue'
+import { state } from '../state'
 
 const tab = ref('diag')
+
+// Un module peut demander l'ouverture d'un onglet (depuis le détail d'hôte).
+watch(
+  () => state.prefill.tab,
+  (t) => {
+    if (t) tab.value = t
+  }
+)
 const tabs = [
   { id: 'diag', label: 'Diag' },
   { id: 'vault', label: 'Coffre' },

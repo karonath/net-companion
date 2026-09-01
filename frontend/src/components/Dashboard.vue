@@ -1,10 +1,22 @@
 <script setup>
+import { onMounted } from 'vue'
 import AppHeader from './AppHeader.vue'
 import PortBanner from './PortBanner.vue'
 import TopologyGraph from './TopologyGraph.vue'
 import SideDrawer from './SideDrawer.vue'
+import HostDetail from './HostDetail.vue'
+import { api } from '../api'
+import { state } from '../state'
 
 defineEmits(['lock'])
+
+onMounted(async () => {
+  try {
+    state.sim = await api.sim()
+  } catch {
+    // simulateur indisponible : ignoré
+  }
+})
 </script>
 
 <template>
@@ -14,6 +26,7 @@ defineEmits(['lock'])
     <div class="body">
       <main class="center">
         <TopologyGraph />
+        <HostDetail />
       </main>
       <SideDrawer />
     </div>
@@ -38,6 +51,7 @@ defineEmits(['lock'])
 .center {
   min-width: 0;
   min-height: 0;
+  position: relative;
 }
 @media (max-width: 900px) {
   .app {

@@ -1,9 +1,21 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { api } from '../api'
+import { state } from '../state'
 
 const checks = ref([])
 const busy = ref(false)
+
+// Pré-remplissage depuis le détail d'hôte (test de port + traceroute).
+watch(
+  () => state.prefill.diagHost,
+  (h) => {
+    if (h) {
+      ph.value = h
+      tt.value = h
+    }
+  }
+)
 
 async function run() {
   busy.value = true

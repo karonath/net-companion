@@ -1,15 +1,16 @@
 <script setup>
 import { ref } from 'vue'
 import { api } from '../api'
+import { state as appState } from '../state'
 
 const sentence = ref('')
 const state = ref('idle') // idle | ok | warn
 const busy = ref(false)
 
-async function locate() {
+async function locate(demo = false) {
   busy.value = true
   try {
-    const loc = await api.portfinder({})
+    const loc = await api.portfinder(demo ? { demo: true } : {})
     sentence.value = loc.sentence || 'Localisation obtenue.'
     state.value = 'ok'
   } catch (e) {
@@ -36,9 +37,14 @@ async function locate() {
       <span v-if="sentence">{{ sentence }}</span>
       <span v-else class="muted">Où suis-je branché ? Lancez le Port-Finder pour identifier switch, port et VLAN.</span>
     </div>
-    <button class="primary" @click="locate" :disabled="busy">
-      {{ busy ? 'Recherche…' : 'Localiser mon port' }}
-    </button>
+    <div class="btns">
+      <button v-if="appState.sim.enabled" @click="locate(true)" :disabled="busy">
+        Démo (switch simulé)
+      </button>
+      <button class="primary" @click="locate(false)" :disabled="busy">
+        {{ busy ? 'Recherche…' : 'Localiser mon port' }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -64,4 +70,5 @@ async function locate() {
   font-size: 1.05rem;
 }
 .dot { background: var(--muted); }
+.btns { display: flex; gap: 0.5rem; flex-shrink: 0; }
 </style>
