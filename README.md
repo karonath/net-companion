@@ -1,124 +1,137 @@
-# Net-Companion Lite
+# Net-Companion **Lite**
 
-Outil de diagnostic réseau de terrain **portable « Zero-Install »** : un **binaire
-unique** (Go + frontend Vue embarqué via `go:embed`) qui, au lancement, démarre
-un serveur local sur `127.0.0.1:8080` et ouvre le navigateur par défaut.
+**Le couteau suisse réseau du technicien de terrain, sur une clé USB.**
 
-Destiné aux ingénieurs NetOps intervenant physiquement sur site : résultats
-visuels immédiats, aucune installation ni fichier de configuration à manipuler.
+Un **binaire unique, zéro-install** (Go + frontend Vue embarqué) : tu le copies
+sur une clé USB, tu le lances sur n'importe quelle machine, il ouvre son
+interface dans le navigateur sur `http://127.0.0.1:8080`. Aucune installation,
+aucune dépendance, aucun fichier de config à trimballer.
 
-## Fonctionnalités
+> **Deux éditions**
+> - **Lite (cette version)** — pensée pour la **clé USB** : portable, zéro-install,
+>   tout en RAM/loopback. C'est la version que tu tiens.
+> - **Édition terrain (à venir)** — pensée pour un **nano-ordinateur** posé sur
+>   site, qui ajoute la **capture passive de trames** (LLDP/CDP sans IP) via
+>   Npcap + un build `-tags npcap`. Non portable (dépend de Npcap), mais plus
+>   puissante quand le réseau te bloque totalement. Voir *Édition terrain* plus bas.
 
-- **Port-Finder** — localise physiquement le poste via SNMP (BRIDGE-MIB) :
-  switch, port (ex. `GigabitEthernet1/0/5`) et VLAN, en langage naturel.
-- **Radar** — topologie de niveau 2 à partir de la table ARP (vérité L2),
-  réchauffée par un sweep concurrent du sous-réseau ; graphe interactif
-  (vis-network) avec fabricant résolu via base **OUI IEEE embarquée** (~40 000
-  fabricants).
-- **In-App Vault** — trousseau chiffré **AES-256-GCM**, clé dérivée d'un **PIN**
-  (Argon2id). Identifiants SNMP/SSH stockés dans `%APPDATA%/netcompanion/vault.dat`
-  (jamais en clair), déverrouillés en RAM.
-- **Config-Diff** — récupère `running-config` vs `startup-config` via SSH et
-  affiche un diff coloré (vert = ajout, rouge = suppression).
-- **Contournement NAC** :
-  - *Niveau 1* — écoute passive **LLDP/CDP** (switch/port même sans IP).
-  - *Niveau 2* — **MAC Spoofing** intégré (aperçu + application avec élévation).
+---
 
-## Prérequis (développement)
+## Démarrage en 30 secondes (DevOps qui découvre)
 
-- Go 1.22+ (testé avec 1.27)
-- Node.js 18+ / npm
+1. Copie `net-companion.exe` sur ta clé, lance-le → le navigateur s'ouvre.
+2. **Crée un code PIN** (il chiffre tes identifiants sur la machine).
+3. Clique **« Mode démo »** dans le bandeau du haut → un équipement réseau
+   **simulé** démarre : tu peux **tout essayer sans aucun matériel**.
+4. Sur chaque panneau, déplie **« À quoi ça sert ? »** pour comprendre la feature.
 
-## Build
+Pas de matériel ? Le **Radar**, les **Diagnostics** et le **Check de site**
+fonctionnent quand même sur ton propre réseau. Le reste (Port-Finder,
+Voisins, Config-Diff, Configs) s'essaie via le **Mode démo**.
 
-Un seul script produit le binaire (front Vite → `go:embed` → exécutable) :
+---
 
-```powershell
-# Windows
-pwsh -File build.ps1
-```
+## Fonctionnalités & utilité
 
-```bash
-# Linux / macOS
-./build.sh
-```
+| Fonction | Ce que ça t'apporte sur le terrain | Prérequis |
+|---|---|---|
+| **Check de site (1 clic)** | État des lieux complet en < 15 s (hôtes + diagnostics), horodaté, comparable d'un passage à l'autre, **rapport exportable** (HTML imprimable / JSON) à joindre au ticket. | — |
+| **Radar / topologie L2** | Voir qui est présent sur le sous-réseau (table ARP + sondes), avec **fabricant** (base OUI embarquée). Clique un hôte → IP, MAC, nom d'hôte, latence + actions. | — |
+| **Diagnostics** | « Le réseau marche-t-il ? » : passerelle, DNS, Internet, latence/jitter + **test de port** et **traceroute** à la demande. | — |
+| **Port-Finder** | « Où suis-je physiquement branché ? » → **switch, port (ex. Gi1/0/5) et VLAN** en langage clair, via SNMP. | SNMP (coffre) ou Mode démo |
+| **Voisins LLDP/CDP** | La vraie carte de proximité : « ce switch voit tel switch sur tel port », via SNMP. | SNMP (coffre) ou Mode démo |
+| **Config-Diff** | Repérer les changements non sauvegardés : **running vs startup** d'un équipement (SSH), en diff coloré. | SSH (coffre) ou Mode démo |
+| **Configs & drift** | Backup de la running-config de **plusieurs équipements**, **baseline approuvée** et détection de **dérive** vs cette référence. | SSH (coffre) ou Mode démo |
+| **Coffre (Vault)** | Trousseau **chiffré** (PIN) : communities **SNMP v2c/v3** et identifiants **SSH**, réutilisés automatiquement. Bouton **Tester** un credential contre une IP. | — |
+| **Blocage NAC** | Que faire quand la prise est verrouillée : **MAC spoofing** (usurper un appareil légitime) et **écoute passive LLDP** (identifier switch/port même sans IP). | MAC spoof : admin · Écoute passive : *édition terrain* |
+| **Mode démo** | Tester **sans matériel** : démarre un switch simulé (SSH + SNMP) pour Port-Finder, Voisins, Config-Diff, Configs. | — |
 
-Résultat : `backend/net-companion.exe` (ou `backend/net-companion`).
-
-## Lancement
-
-Double-cliquez le binaire, ou :
-
-```powershell
-backend\net-companion.exe
-```
-
-Le navigateur s'ouvre sur `http://127.0.0.1:8080`. Au premier lancement,
-créez un **PIN** ; aux suivants, saisissez-le pour déverrouiller le trousseau.
-
-Variable d'environnement optionnelle : `NC_ADDR` pour changer l'adresse
-d'écoute (par défaut `127.0.0.1:8080`).
-
-## Utilisation
-
-1. Créez/déverrouillez le coffre (PIN).
-2. Dans le drawer **Coffre**, ajoutez vos communities SNMP et identifiants SSH.
-3. **Radar** → *Rescanner* pour peupler le graphe de topologie.
-4. **Localiser mon port** (bandeau) → interroge le switch via SNMP.
-5. **Config-Diff** → saisissez l'IP d'un équipement pour comparer running/startup.
-6. **NAC** → écoute LLDP, ou aperçu/application d'un MAC spoof.
-
-## Limites connues (MVP)
-
-- **Capture LLDP réelle** : nécessite **Npcap** installé et une compilation
-  `go build -tags npcap` (+ compilateur C). Sans cela, l'écoute LLDP renvoie
-  proprement « indisponible » (dégradation gérée).
-- **MAC Spoofing réel** : nécessite une session **administrateur/root** ; sans
-  élévation, l'action est refusée proprement (aperçu du plan disponible).
-- **Radar** : sous Windows sans admin, l'ICMP retombe sur TCP + ARP. Certains
-  points d'accès Wi-Fi acceptant tout le trafic TCP, la topologie s'appuie sur
-  la **table ARP** (fiable) plutôt que sur les résultats bruts du sweep.
-- **Port-Finder SNMP** : logique validée par tests mockés ; le chemin réseau
-  réel dépend d'un équipement SNMP joignable.
+---
 
 ## Sécurité
 
-- **Coffre** chiffré AES-256-GCM, clé dérivée du PIN (Argon2id) ; secrets en RAM
-  seulement une fois déverrouillé.
-- **API locale protégée** : au démarrage, un **jeton de session** aléatoire est
-  généré et injecté dans la page servie. Chaque appel `/api/*` exige l'en-tête
-  `X-NC-Token` + une **Origin** locale. Un site web tiers ouvert dans le
-  navigateur ne peut donc pas atteindre l'API (protection CSRF / DNS-rebinding),
-  car il ne peut ni lire le jeton (CORS) ni poser l'en-tête custom.
-- **Limite assumée** : sur l'interface loopback, un *autre processus local*
-  disposant des droits de l'utilisateur peut lire la page (et donc le jeton).
-  L'isolation inter-processus locale dépasse le cadre d'un binaire portable ;
-  la menace visée ici est le navigateur.
+- **Coffre** : clé dérivée du PIN (Argon2id), secrets chiffrés **AES-256-GCM**,
+  déchiffrés en RAM seulement. Fichier : `%APPDATA%/netcompanion/vault.dat`.
+- **API locale protégée** : jeton de session injecté dans la page + en-tête
+  `X-NC-Token` + contrôle d'Origin → un site web tiers ouvert dans ton
+  navigateur ne peut pas atteindre l'API (anti CSRF / DNS-rebinding).
+- **Limite assumée** : sur loopback, un autre processus local avec tes droits
+  peut lire la page ; l'isolation inter-processus dépasse un binaire portable.
+- Historique/configs = inventaire (pas de secrets) → JSON local en clair.
 
-## Signature du binaire
+---
 
-Le binaire n'est pas signé par défaut → Windows SmartScreen / macOS Gatekeeper
-peuvent alerter. Pour une diffusion, signer :
+## Build (développeur)
 
-- **Windows** : `signtool sign /fd SHA256 /a /tr http://timestamp.digicert.com /td SHA256 net-companion.exe`
-  (ou `osslsigncode` avec un certificat Authenticode).
-- **macOS** : `codesign --deep --options runtime --sign "Developer ID Application: …" net-companion`
-  puis notarisation (`notarytool`).
-- **Linux** : signer le paquet/dépôt (GPG) selon la distribution.
+Prérequis : Go 1.22+ et Node.js 18+.
+
+```powershell
+pwsh -File build.ps1      # Windows
+```
+```bash
+./build.sh                # Linux / macOS
+```
+Produit `backend/net-companion.exe` (ou `net-companion`) : **un seul fichier**
+(frontend Vite compilé puis embarqué via `go:embed`).
+
+Lancement : double-clic, ou `backend\net-companion.exe`.
+Variable optionnelle : `NC_ADDR` pour changer l'adresse d'écoute (défaut
+`127.0.0.1:8080`).
+
+> **Signature** : le binaire n'est pas signé → SmartScreen/Gatekeeper peuvent
+> alerter au 1er lancement (« Informations complémentaires → Exécuter quand
+> même »). Pour diffuser : `signtool` (Windows), `codesign`+notarisation
+> (macOS), GPG (Linux).
+
+---
+
+## Édition terrain (nano-ordinateur, à venir)
+
+L'**écoute passive LLDP/CDP** capte les trames du switch **même sans adresse IP**
+(réseau/NAC totalement bloqué) — utile posté à demeure sur un nano-ordinateur.
+Elle repose sur de la capture de paquets (gopacket/pcap = cgo) et exige donc :
+
+1. **Npcap** installé sur la machine (npcap.com) ;
+2. le **SDK Npcap** (en-têtes + lib) au moment du build ;
+3. un **compilateur C** (`CGO_ENABLED=1`, mingw-w64/MSYS2) ;
+4. la compilation avec le tag : `go build -tags npcap`.
+
+Ce binaire n'est alors **plus zéro-install** (il dépend de Npcap sur chaque
+cible) — c'est pourquoi il est réservé à l'édition terrain. La version **Lite**
+par défaut désactive proprement cette capture (« indisponible ») et privilégie
+le voisinage **par SNMP** (onglet Voisins), qui, lui, fonctionne sans rien.
+
+---
+
+## Limites connues (Lite)
+
+- **Écoute passive LLDP** : désactivée (voir Édition terrain).
+- **MAC spoofing réel** : nécessite une session administrateur ; sinon l'aperçu
+  du plan est affiché mais l'action est refusée proprement.
+- **Radar** : sans admin, s'appuie sur la table ARP (fiable en L2) plutôt que
+  sur un ping ICMP.
+- **Contre du vrai matériel** : Port-Finder / Voisins / Config-Diff / Configs
+  nécessitent l'équipement joignable + des credentials valides. La logique est
+  validée par tests et démontrable via le **Mode démo**.
+
+---
 
 ## Architecture
 
 ```
-frontend/           # Vue 3 + Vite (buildé vers backend/web/dist)
+frontend/           # Vue 3 + Vite (build → backend/web/dist)
 backend/
-  main.go           # serveur + ouverture navigateur
-  web/embed.go      # //go:embed dist
+  main.go           # serveur local + ouverture navigateur + jeton de session
+  web/embed.go      # //go:embed dist  (frontend embarqué)
   internal/
-    server/         # routeur HTTP + statique
-    vault/          # AES-256-GCM + Argon2id
+    server/         # routeur HTTP + auth (jeton) + statique
+    vault/          # coffre AES-256-GCM + Argon2id
     api/            # handlers REST (/api/*)
+    sim/            # simulateur d'équipement (SSH réel + SNMP démo)
+    history/        # snapshots de site + rapport
+    configstore/    # configs par équipement + baseline/drift
     network/
-      netinfo/ arp/ radar/ oui/ portfinder/ configdiff/ lldp/ macspoof/
+      netinfo arp radar oui portfinder configdiff lldp macspoof diag neighbors
     models/         # DTO JSON partagés
 ```
 
