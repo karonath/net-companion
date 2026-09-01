@@ -5,6 +5,7 @@ import ConfigDiff from './ConfigDiff.vue'
 import NacPanel from './NacPanel.vue'
 import Diagnostics from './Diagnostics.vue'
 import Checkup from './Checkup.vue'
+import Neighbors from './Neighbors.vue'
 import { state } from '../state'
 
 const tab = ref('check')
@@ -19,6 +20,7 @@ watch(
 const tabs = [
   { id: 'check', label: 'Check' },
   { id: 'diag', label: 'Diag' },
+  { id: 'neighbors', label: 'Voisins' },
   { id: 'vault', label: 'Coffre' },
   { id: 'diff', label: 'Diff' },
   { id: 'nac', label: 'NAC' },
@@ -40,6 +42,7 @@ const tabs = [
     <div class="content">
       <Checkup v-show="tab === 'check'" />
       <Diagnostics v-show="tab === 'diag'" />
+      <Neighbors v-show="tab === 'neighbors'" />
       <VaultManager v-show="tab === 'vault'" />
       <ConfigDiff v-show="tab === 'diff'" />
       <NacPanel v-show="tab === 'nac'" />

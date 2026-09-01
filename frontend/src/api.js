@@ -43,6 +43,8 @@ export const api = {
   networkHost: (ip) => req('GET', '/api/network/host?ip=' + encodeURIComponent(ip)),
   radar: () => req('GET', '/api/network/radar'),
   portfinder: (b) => req('POST', '/api/network/portfinder', b),
+  neighbors: (deviceIp, demo) =>
+    req('POST', '/api/network/neighbors', demo ? { demo: true } : { deviceIp }),
   sim: () => req('GET', '/api/sim'),
 
   lldp: () => req('GET', '/api/nac/lldp'),
