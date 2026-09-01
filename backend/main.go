@@ -9,6 +9,7 @@ import (
 
 	"netcompanion/internal/browser"
 	"netcompanion/internal/server"
+	"netcompanion/internal/vault"
 	"netcompanion/web"
 )
 
@@ -19,6 +20,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("frontend embarqué illisible: %v", err)
 	}
+
+	vaultPath, err := vault.DefaultPath()
+	if err != nil {
+		log.Fatalf("chemin du coffre indéterminé: %v", err)
+	}
+	v := vault.New(vaultPath)
+	log.Printf("coffre: %s", vaultPath)
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -36,7 +44,7 @@ func main() {
 		}
 	}()
 
-	if err := http.Serve(ln, server.Handler(fsys)); err != nil {
+	if err := http.Serve(ln, server.Handler(fsys, v)); err != nil {
 		log.Fatalf("serveur arrêté: %v", err)
 	}
 }
