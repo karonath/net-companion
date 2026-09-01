@@ -17,6 +17,7 @@ type Info struct {
 var (
 	mu      sync.RWMutex
 	current Info
+	stopFn  func() // arrête le serveur SSH simulé
 )
 
 // Start démarre le simulateur au boot si NC_SIMULATOR=1 (sinon no-op).
@@ -44,14 +45,27 @@ func Enable() (Info, error) {
 	if listen == "" {
 		listen = "127.0.0.1:2222"
 	}
-	_, addr, err := StartSSH(listen)
+	stop, addr, err := StartSSH(listen)
 	if err != nil {
 		return Info{}, err
 	}
+	stopFn = stop
 	current = Info{Enabled: true, SSH: addr, DemoMac: DemoMAC, User: DemoSSHUser}
 	log.Printf("SIMULATEUR actif — SSH %s (user %s/%s), MAC démo %s",
 		addr, DemoSSHUser, DemoSSHPassword, DemoMAC)
 	return current, nil
+}
+
+// Disable arrête le simulateur et repasse en mode réel. Idempotent.
+func Disable() {
+	mu.Lock()
+	defer mu.Unlock()
+	if stopFn != nil {
+		stopFn()
+		stopFn = nil
+	}
+	current = Info{}
+	log.Print("SIMULATEUR désactivé")
 }
 
 // Current renvoie l'état courant du simulateur.

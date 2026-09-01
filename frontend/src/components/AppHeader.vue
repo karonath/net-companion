@@ -16,6 +16,16 @@ async function enableDemo() {
     demoBusy.value = false
   }
 }
+async function disableDemo() {
+  demoBusy.value = true
+  try {
+    state.sim = await api.simDisable()
+  } catch {
+    state.sim = { enabled: false, ssh: '', demoMac: '', user: '' }
+  } finally {
+    demoBusy.value = false
+  }
+}
 
 const iface = ref(null)
 const gateway = ref('')
@@ -62,7 +72,12 @@ onMounted(load)
       <span v-if="state.sim.enabled" class="tag demo">
         <span class="dot orange"></span> Simulateur actif
       </span>
-      <button v-else @click="enableDemo" :disabled="demoBusy" title="Démarrer un équipement simulé pour tester sans matériel">
+      <button v-if="state.sim.enabled" class="danger" @click="disableDemo" :disabled="demoBusy"
+        title="Arrêter le simulateur et revenir aux vraies données">
+        {{ demoBusy ? '…' : 'Désactiver la démo' }}
+      </button>
+      <button v-else @click="enableDemo" :disabled="demoBusy"
+        title="Démarrer un équipement simulé pour tester sans matériel">
         {{ demoBusy ? '…' : 'Mode démo' }}
       </button>
 

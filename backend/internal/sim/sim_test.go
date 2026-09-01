@@ -23,4 +23,15 @@ func TestEnableIdempotent(t *testing.T) {
 	if info2.SSH != info.SSH {
 		t.Fatalf("SSH a changé au 2e Enable: %s vs %s", info2.SSH, info.SSH)
 	}
+
+	// Disable repasse en mode réel
+	Disable()
+	if Current().Enabled {
+		t.Fatal("après Disable, Current() ne doit plus être actif")
+	}
+	// on peut réactiver après désactivation
+	if _, err := Enable(); err != nil {
+		t.Fatalf("réactivation après Disable: %v", err)
+	}
+	Disable()
 }

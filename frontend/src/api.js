@@ -53,6 +53,7 @@ export const api = {
     req('POST', '/api/network/neighbors', demo ? { demo: true } : { deviceIp }),
   sim: () => req('GET', '/api/sim'),
   simEnable: () => req('POST', '/api/sim/enable'),
+  simDisable: () => req('POST', '/api/sim/disable'),
 
   lldp: () => req('GET', '/api/nac/lldp'),
   spoof: (b) => req('POST', '/api/nac/spoof', b),

@@ -16,6 +16,18 @@ let curNodes = null
 let curEdges = null
 const filter = ref('')
 
+// Désactivation du mode démo : retire les voisins simulés du graphe.
+watch(
+  () => state.sim.enabled,
+  (on) => {
+    if (on || !curNodes || !curEdges) return
+    const swIds = curNodes.getIds().filter((id) => String(id).startsWith('sw:'))
+    const edgeIds = curEdges.getIds().filter((id) => String(id).startsWith('nbedge:'))
+    if (edgeIds.length) curEdges.remove(edgeIds)
+    if (swIds.length) curNodes.remove(swIds)
+  }
+)
+
 watch(filter, (q) => {
   if (!curNodes) return
   const term = q.trim().toLowerCase()

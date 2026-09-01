@@ -20,4 +20,9 @@ func registerSim(mux *http.ServeMux) {
 		}
 		writeJSON(w, http.StatusOK, info)
 	})
+
+	mux.HandleFunc("POST /api/sim/disable", func(w http.ResponseWriter, r *http.Request) {
+		sim.Disable()
+		writeJSON(w, http.StatusOK, sim.Current())
+	})
 }
