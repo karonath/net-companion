@@ -1,16 +1,30 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { Network, DataSet } from 'vis-network/standalone'
 import { api } from '../api'
-import { selectHost } from '../state'
+import { selectHost, state } from '../state'
 
 const el = ref(null)
 const busy = ref(false)
+const nbBusy = ref(false)
 const err = ref('')
 const count = ref(0)
 let network = null
 let hostMap = {}
 let gwHint = ''
+let curNodes = null
+let curEdges = null
+const filter = ref('')
+
+watch(filter, (q) => {
+  if (!curNodes) return
+  const term = q.trim().toLowerCase()
+  const updates = Object.values(hostMap).map((h) => {
+    const hay = (h.ip + ' ' + (h.vendor || '') + ' ' + (h.mac || '')).toLowerCase()
+    return { id: h.ip, hidden: term !== '' && !hay.includes(term) }
+  })
+  if (updates.length) curNodes.update(updates)
+})
 
 function styleOptions() {
   const css = getComputedStyle(document.documentElement)
@@ -76,6 +90,8 @@ async function scan() {
     }
 
     count.value = res.hosts.length
+    curNodes = nodes
+    curEdges = edges
     const data = { nodes, edges }
     if (network) {
       network.setData(data)
@@ -104,6 +120,42 @@ async function scan() {
   }
 }
 
+async function addNeighbors() {
+  if (!curNodes || !curEdges) return
+  nbBusy.value = true
+  err.value = ''
+  try {
+    const res = await api.neighbors('', state.sim.enabled)
+    const css = getComputedStyle(document.documentElement)
+    const c = (n) => css.getPropertyValue(n).trim()
+    const anchor = curNodes.get(gwHint) ? gwHint : 'local'
+    for (const n of res.neighbors || []) {
+      const name = n.remoteSysName || n.remoteChassisId || 'switch'
+      const id = 'sw:' + name
+      if (!curNodes.get(id)) {
+        curNodes.add({
+          id, label: name, shape: 'box',
+          color: { background: c('--accent'), border: c('--accent') },
+          font: { color: '#04101f' },
+        })
+      }
+      const eid = 'nbedge:' + anchor + ':' + id
+      if (!curEdges.get(eid)) {
+        curEdges.add({
+          id: eid, from: anchor, to: id,
+          label: (n.localPort ? 'p' + n.localPort : '') + ' ↔ ' + (n.remotePortId || ''),
+          font: { color: c('--muted'), size: 10 },
+        })
+      }
+    }
+    if (network) network.fit()
+  } catch (e) {
+    err.value = e.status === 423 ? 'Coffre verrouillé (voisins SNMP).' : 'Voisins indisponibles : ' + e.message
+  } finally {
+    nbBusy.value = false
+  }
+}
+
 onMounted(scan)
 onBeforeUnmount(() => {
   if (network) network.destroy()
@@ -117,9 +169,15 @@ onBeforeUnmount(() => {
         <strong>Radar — topologie L2</strong>
         <span class="muted"> · {{ count }} hôte(s)</span>
       </div>
-      <button @click="scan" :disabled="busy">
-        {{ busy ? 'Scan…' : 'Rescanner' }}
-      </button>
+      <input v-model="filter" class="filter" placeholder="Filtrer (IP/vendor)" />
+      <div class="bar-btns">
+        <button @click="addNeighbors" :disabled="nbBusy" title="Découvrir les voisins LLDP/CDP par SNMP">
+          {{ nbBusy ? '…' : 'Voisins LLDP' }}
+        </button>
+        <button @click="scan" :disabled="busy">
+          {{ busy ? 'Scan…' : 'Rescanner' }}
+        </button>
+      </div>
     </div>
     <p v-if="err" class="err">{{ err }}</p>
     <div ref="el" class="canvas"></div>
@@ -146,6 +204,9 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
 }
+.bar-btns { display: flex; gap: 0.5rem; }
+.filter { max-width: 170px; margin: 0 0.5rem; }
+.bar { gap: 0.5rem; flex-wrap: wrap; }
 .err {
   color: var(--red);
   padding: 0.5rem 1rem;

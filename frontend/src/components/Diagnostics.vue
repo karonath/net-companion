@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { api } from '../api'
-import { state } from '../state'
+import { state, copyText } from '../state'
 
 const checks = ref([])
 const busy = ref(false)
@@ -73,6 +73,10 @@ function dotClass(status) {
       <button class="primary" @click="run" :disabled="busy">
         {{ busy ? 'Analyse…' : 'Lancer les diagnostics' }}
       </button>
+      <button v-if="checks.length" class="copy"
+        @click="copyText(checks.map(c => c.name + ': ' + c.status + ' — ' + c.detail).join('\n'))">
+        Copier
+      </button>
       <ul v-if="checks.length" class="checks">
         <li v-for="(c, i) in checks" :key="i">
           <span class="dot" :class="dotClass(c.status)"></span>
@@ -117,6 +121,7 @@ function dotClass(status) {
 <style scoped>
 section { margin-bottom: 1.5rem; }
 h3 { margin: 0 0 0.6rem; font-size: 0.95rem; }
+.copy { margin: 0.8rem 0 0; font-size: 0.82rem; padding: 0.3rem 0.6rem; }
 .checks { list-style: none; padding: 0; margin: 0.8rem 0 0; display: flex; flex-direction: column; gap: 0.6rem; }
 .checks li { display: flex; gap: 0.6rem; align-items: flex-start; }
 .checks .dot { margin-top: 5px; flex: 0 0 auto; }

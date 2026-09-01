@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -39,6 +40,10 @@ func registerNetwork(mux *http.ServeMux, v *vault.Vault) {
 			return
 		}
 		writeJSON(w, http.StatusOK, models.RadarResult{Interface: ifi, Hosts: runRadar(ifi)})
+	})
+
+	mux.HandleFunc("GET /api/network/publicip", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]string{"ip": publicIP()})
 	})
 
 	mux.HandleFunc("GET /api/network/host", func(w http.ResponseWriter, r *http.Request) {
@@ -167,6 +172,21 @@ func isMulticastOrBroadcastMAC(mac string) bool {
 	return strings.HasPrefix(mac, "01:00:5e") ||
 		strings.HasPrefix(mac, "33:33") ||
 		strings.HasPrefix(mac, "ff:ff:ff:ff:ff:ff")
+}
+
+// publicIP récupère l'IP publique en best-effort (timeout court), "" si échec.
+func publicIP() string {
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get("https://api.ipify.org")
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	b, err := io.ReadAll(io.LimitReader(resp.Body, 64))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
 }
 
 // quickRTTms mesure un RTT TCP best-effort vers l'hôte (ms), -1 si injoignable.

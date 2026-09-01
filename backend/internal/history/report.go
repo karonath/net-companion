@@ -26,7 +26,9 @@ var reportTmpl = template.Must(template.New("report").Parse(`<!doctype html>
 </head>
 <body>
   <h1>Net-Companion — Rapport d'intervention</h1>
+  {{if .Snap.Label}}<p class="sub"><strong>Site :</strong> {{.Snap.Label}}</p>{{end}}
   <p class="sub">{{.TimeStr}} · Interface {{.Snap.Interface.Name}} ({{.Snap.Interface.IPv4}}) · Passerelle {{.Snap.Gateway}}</p>
+  {{if .Snap.Notes}}<p class="sub"><strong>Notes :</strong> {{.Snap.Notes}}</p>{{end}}
 
   {{if .HasChanges}}
   <h2>Changements depuis le passage précédent</h2>

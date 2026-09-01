@@ -23,7 +23,7 @@ const tabs = [
   { id: 'neighbors', label: 'Voisins' },
   { id: 'vault', label: 'Coffre' },
   { id: 'diff', label: 'Diff' },
-  { id: 'nac', label: 'NAC' },
+  { id: 'nac', label: 'Blocage' },
 ]
 </script>
 

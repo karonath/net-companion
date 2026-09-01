@@ -25,3 +25,12 @@ export function gotoDiag(host) {
   state.prefill.diagHost = host
   state.prefill.tab = 'diag'
 }
+
+// copyText copie du texte dans le presse-papiers (best-effort).
+export function copyText(text) {
+  try {
+    navigator.clipboard.writeText(text)
+  } catch {
+    /* ignoré */
+  }
+}
