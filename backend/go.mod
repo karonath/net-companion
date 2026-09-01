@@ -5,6 +5,7 @@ go 1.27.0
 require golang.org/x/crypto v0.55.0
 
 require (
+	github.com/gosnmp/gosnmp v1.44.0 // indirect
 	github.com/jackpal/gateway v1.2.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect

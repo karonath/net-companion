@@ -1,3 +1,5 @@
+github.com/gosnmp/gosnmp v1.44.0 h1:6SUNAJWjSu/j05rm+M1G39NoPW8jvShiFqYf6XNnM+k=
+github.com/gosnmp/gosnmp v1.44.0/go.mod h1:30xQDXCVXXehh/xwRd62+JwIizwc3HZaBi4F/Hv5/0o=
 github.com/jackpal/gateway v1.2.0 h1:euPRe4t7JfTaqC5Lr78HXl2wSHo54XndTtiAcIxkb5g=
 github.com/jackpal/gateway v1.2.0/go.mod h1:/jchvRi4HukAqV24da70iaBMFcSrX3rNWdR5K9VHd0A=
 golang.org/x/crypto v0.55.0 h1:+KWHjbgOaAQ66dh/YlkZKHlz9ZUlq61AFirAR9ntP8M=
