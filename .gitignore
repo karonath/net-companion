@@ -1,0 +1,13 @@
+# Node
+frontend/node_modules/
+
+# Frontend build embarqué (régénéré par le build)
+backend/web/dist/
+
+# Binaires Go
+backend/net-companion
+backend/net-companion.exe
+
+# OS
+.DS_Store
+Thumbs.db
