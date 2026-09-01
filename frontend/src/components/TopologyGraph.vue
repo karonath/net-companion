@@ -24,7 +24,11 @@ function styleOptions() {
       width: 1,
       smooth: { type: 'continuous' },
     },
-    physics: { stabilization: true, barnesHut: { springLength: 120 } },
+    layout: { improvedLayout: false },
+    physics: {
+      stabilization: { enabled: true, iterations: 200, fit: true },
+      barnesHut: { springLength: 120 },
+    },
     interaction: { hover: true, tooltipDelay: 120 },
   }
 }
@@ -72,7 +76,11 @@ async function scan() {
       network.setData(data)
     } else {
       network = new Network(el.value, data, styleOptions())
+      // Recadre la caméra sur les nœuds une fois la physique stabilisée
+      // (improvedLayout est désactivé car il abandonne au-delà de ~100 nœuds).
+      network.on('stabilizationIterationsDone', () => network && network.fit())
     }
+    network.fit()
   } catch (e) {
     err.value = e.message
   } finally {
@@ -105,7 +113,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .graph {
   height: 100%;
-  min-height: 420px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -116,10 +124,11 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
 }
 .canvas {
   flex: 1;
-  min-height: 380px;
+  min-height: 0;
 }
 .err {
   color: var(--red);

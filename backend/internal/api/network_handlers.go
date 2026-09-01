@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"netcompanion/internal/models"
 	"netcompanion/internal/network/arp"
@@ -71,31 +72,36 @@ func registerNetwork(mux *http.ServeMux, v *vault.Vault) {
 	})
 }
 
-// runRadar combine la table ARP (avec fabricant) et un sweep du sous-réseau.
+// runRadar construit la topologie L2 à partir de la table ARP (vérité niveau 2).
+// Le sweep du sous-réseau sert uniquement à réchauffer le cache ARP : les hôtes
+// réels répondent en L2 et y apparaissent. Les résultats du sweep ne créent
+// PAS de nœuds (certains points d'accès acceptent le TCP pour toutes les IP,
+// ce qui produirait des hôtes fantômes).
 func runRadar(ifi models.InterfaceInfo) []models.Host {
-	seen := map[string]*models.Host{}
-
-	for _, n := range readARP() {
-		seen[n.IP] = &models.Host{IP: n.IP, MAC: n.MAC, Vendor: oui.Vendor(n.MAC), Alive: true, Source: "arp"}
-	}
-
 	if ifi.CIDR != "" {
 		if hosts, err := radar.HostsInCIDR(ifi.CIDR, 1024); err == nil {
-			for _, ip := range radar.Sweep(hosts, radar.NewProber(), 64) {
-				if h, ok := seen[ip]; ok {
-					h.Alive = true
-				} else {
-					seen[ip] = &models.Host{IP: ip, Alive: true, Source: "sweep"}
-				}
-			}
+			radar.Sweep(hosts, radar.NewProber(), 64) // effet de bord : peuple l'ARP
 		}
 	}
 
-	out := make([]models.Host, 0, len(seen))
-	for _, h := range seen {
-		out = append(out, *h)
+	out := []models.Host{}
+	for _, n := range readARP() {
+		if isMulticastOrBroadcastMAC(n.MAC) {
+			continue // ignore les entrées multicast/broadcast (224.x, 239.x, 255.x…)
+		}
+		out = append(out, models.Host{
+			IP: n.IP, MAC: n.MAC, Vendor: oui.Vendor(n.MAC), Alive: true, Source: "arp",
+		})
 	}
 	return out
+}
+
+// isMulticastOrBroadcastMAC repère les adresses L2 non-unicast à exclure de la
+// topologie : multicast IPv4 (01:00:5e), IPv6 (33:33), broadcast (ff:ff:…).
+func isMulticastOrBroadcastMAC(mac string) bool {
+	return strings.HasPrefix(mac, "01:00:5e") ||
+		strings.HasPrefix(mac, "33:33") ||
+		strings.HasPrefix(mac, "ff:ff:ff:ff:ff:ff")
 }
 
 func readARP() []arp.Neighbor {

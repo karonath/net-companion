@@ -22,24 +22,34 @@ defineEmits(['lock'])
 
 <style scoped>
 .app {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 .body {
   flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 1fr 380px;
   gap: 1rem;
   padding: 1rem;
-  min-height: 0;
 }
 .center {
   min-width: 0;
+  min-height: 0;
 }
 @media (max-width: 900px) {
+  .app {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
   .body {
     grid-template-columns: 1fr;
+  }
+  .center {
+    height: 70vh;
   }
 }
 </style>

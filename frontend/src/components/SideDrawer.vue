@@ -37,6 +37,7 @@ const tabs = [
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 .tabs {
   display: flex;

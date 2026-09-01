@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"netcompanion/internal/browser"
@@ -13,9 +14,14 @@ import (
 	"netcompanion/web"
 )
 
-const addr = "127.0.0.1:8080"
+const defaultAddr = "127.0.0.1:8080"
 
 func main() {
+	addr := defaultAddr
+	if v := os.Getenv("NC_ADDR"); v != "" {
+		addr = v
+	}
+
 	fsys, err := web.Dist()
 	if err != nil {
 		log.Fatalf("frontend embarqué illisible: %v", err)
