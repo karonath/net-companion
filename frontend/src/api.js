@@ -53,4 +53,9 @@ export const api = {
   diag: () => req('GET', '/api/diag'),
   diagPort: (host, port) => req('POST', '/api/diag/port', { host, port }),
   diagTraceroute: (target) => req('POST', '/api/diag/traceroute', { target }),
+
+  checkup: () => req('POST', '/api/checkup'),
+  history: () => req('GET', '/api/history'),
+  reportUrl: (id) => '/api/report/' + encodeURIComponent(id),
+  reportJsonUrl: (id) => '/api/report/' + encodeURIComponent(id) + '?format=json',
 }
