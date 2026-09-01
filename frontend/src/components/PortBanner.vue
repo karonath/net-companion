@@ -1,11 +1,24 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { api } from '../api'
 import { state as appState, copyText } from '../state'
 
 const sentence = ref('')
 const state = ref('idle') // idle | ok | warn
 const busy = ref(false)
+const fromDemo = ref(false)
+
+// Si on désactive le mode démo, on efface un résultat issu de la démo.
+watch(
+  () => appState.sim.enabled,
+  (on) => {
+    if (!on && fromDemo.value) {
+      sentence.value = ''
+      state.value = 'idle'
+      fromDemo.value = false
+    }
+  }
+)
 
 async function locate(demo = false) {
   busy.value = true
@@ -13,6 +26,7 @@ async function locate(demo = false) {
     const loc = await api.portfinder(demo ? { demo: true } : {})
     sentence.value = loc.sentence || 'Localisation obtenue.'
     state.value = 'ok'
+    fromDemo.value = demo
   } catch (e) {
     if (e.status === 423) {
       sentence.value = 'Coffre verrouillé — déverrouillez pour interroger le switch.'
