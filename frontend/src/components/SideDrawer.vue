@@ -6,6 +6,7 @@ import NacPanel from './NacPanel.vue'
 import Diagnostics from './Diagnostics.vue'
 import Checkup from './Checkup.vue'
 import Neighbors from './Neighbors.vue'
+import Configs from './Configs.vue'
 import { state } from '../state'
 
 const tab = ref('check')
@@ -21,6 +22,7 @@ const tabs = [
   { id: 'check', label: 'Check' },
   { id: 'diag', label: 'Diag' },
   { id: 'neighbors', label: 'Voisins' },
+  { id: 'configs', label: 'Configs' },
   { id: 'vault', label: 'Coffre' },
   { id: 'diff', label: 'Diff' },
   { id: 'nac', label: 'Blocage' },
@@ -43,6 +45,7 @@ const tabs = [
       <Checkup v-show="tab === 'check'" />
       <Diagnostics v-show="tab === 'diag'" />
       <Neighbors v-show="tab === 'neighbors'" />
+      <Configs v-show="tab === 'configs'" />
       <VaultManager v-show="tab === 'vault'" />
       <ConfigDiff v-show="tab === 'diff'" />
       <NacPanel v-show="tab === 'nac'" />
@@ -59,6 +62,7 @@ const tabs = [
 }
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   border-bottom: 1px solid var(--border);
 }
 .tabs button {
