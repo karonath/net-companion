@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { api } from '../api'
-import { state as appState } from '../state'
+import { state as appState, copyText } from '../state'
 
 const sentence = ref('')
 const state = ref('idle') // idle | ok | warn
@@ -38,6 +38,7 @@ async function locate(demo = false) {
       <span v-else class="muted">Où suis-je branché ? Lancez le Port-Finder pour identifier switch, port et VLAN.</span>
     </div>
     <div class="btns">
+      <button v-if="sentence" @click="copyText(sentence)" title="Copier">⧉</button>
       <button v-if="appState.sim.enabled" @click="locate(true)" :disabled="busy">
         Démo (switch simulé)
       </button>

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { api } from '../api'
-import { state } from '../state'
+import { state, copyText } from '../state'
 
 const deviceIp = ref('')
 
@@ -15,6 +15,13 @@ watch(
 
 function useDemo() {
   if (state.sim.enabled) deviceIp.value = state.sim.ssh
+}
+
+function copyDiff() {
+  const txt = lines.value
+    .map((l) => (l.op === 'add' ? '+ ' : l.op === 'del' ? '- ' : '  ') + l.text)
+    .join('\n')
+  copyText(txt)
 }
 const lines = ref([])
 const err = ref('')
@@ -61,6 +68,7 @@ async function run() {
       Aucune différence : running-config = startup-config.
     </div>
 
+    <button v-if="lines.length" class="copy" @click="copyDiff">Copier le diff</button>
     <pre v-if="lines.length" class="diff"><code
       v-for="(l, i) in lines" :key="i" :class="l.op"
     >{{ l.op === 'add' ? '+ ' : l.op === 'del' ? '- ' : '  ' }}{{ l.text }}
@@ -74,6 +82,7 @@ h3 { margin: 0 0 0.6rem; font-size: 0.95rem; }
 .form { display: flex; gap: 0.5rem; margin-bottom: 0.8rem; }
 .form input { flex: 1; }
 .err { color: var(--red); font-size: 0.9rem; }
+.copy { margin-bottom: 0.5rem; font-size: 0.82rem; padding: 0.3rem 0.6rem; }
 .diff {
   margin: 0;
   padding: 0.6rem;

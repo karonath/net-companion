@@ -38,9 +38,11 @@ export const api = {
   listSSH: () => req('GET', '/api/vault/secrets/ssh'),
   addSSH: (c) => req('POST', '/api/vault/secrets/ssh', c),
   delSSH: (id) => req('DELETE', '/api/vault/secrets/ssh/' + id),
+  vaultTest: (type, id, deviceIp) => req('POST', '/api/vault/test', { type, id, deviceIp }),
 
   networkInfo: () => req('GET', '/api/network/info'),
   networkHost: (ip) => req('GET', '/api/network/host?ip=' + encodeURIComponent(ip)),
+  publicIP: () => req('GET', '/api/network/publicip'),
   radar: () => req('GET', '/api/network/radar'),
   portfinder: (b) => req('POST', '/api/network/portfinder', b),
   neighbors: (deviceIp, demo) =>
@@ -56,7 +58,7 @@ export const api = {
   diagPort: (host, port) => req('POST', '/api/diag/port', { host, port }),
   diagTraceroute: (target) => req('POST', '/api/diag/traceroute', { target }),
 
-  checkup: () => req('POST', '/api/checkup'),
+  checkup: (label, notes) => req('POST', '/api/checkup', { label, notes }),
   history: () => req('GET', '/api/history'),
   reportUrl: (id) => '/api/report/' + encodeURIComponent(id),
   reportJsonUrl: (id) => '/api/report/' + encodeURIComponent(id) + '?format=json',

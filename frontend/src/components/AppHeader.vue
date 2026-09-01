@@ -6,6 +6,7 @@ defineEmits(['lock'])
 
 const iface = ref(null)
 const gateway = ref('')
+const publicip = ref('')
 const err = ref(false)
 
 async function load() {
@@ -16,6 +17,12 @@ async function load() {
     err.value = false
   } catch {
     err.value = true
+  }
+  try {
+    const p = await api.publicIP()
+    publicip.value = p.ip || ''
+  } catch {
+    publicip.value = ''
   }
 }
 onMounted(load)
@@ -37,6 +44,7 @@ onMounted(load)
         <span class="dot red"></span> interface indisponible
       </span>
       <span v-if="gateway" class="tag muted">GW {{ gateway }}</span>
+      <span v-if="publicip" class="tag muted">WAN {{ publicip }}</span>
 
       <span class="tag"><span class="dot green"></span> Coffre déverrouillé</span>
       <button class="danger" @click="$emit('lock')">Verrouiller</button>

@@ -62,6 +62,10 @@ async function apply() {
 
 <template>
   <div class="nac">
+    <p class="intro muted">
+      Que faire quand le réseau te <strong>bloque</strong> (prise verrouillée, pas d'IP).
+      Différent de l'onglet <strong>Voisins</strong> qui interroge par SNMP (nécessite une IP).
+    </p>
     <section>
       <h3>Écoute passive LLDP/CDP</h3>
       <p class="muted">
@@ -110,6 +114,7 @@ async function apply() {
 </template>
 
 <style scoped>
+.intro { margin: 0 0 1.2rem; font-size: 0.85rem; }
 section { margin-bottom: 1.5rem; }
 h3 { margin: 0 0 0.35rem; font-size: 0.95rem; }
 p { margin: 0 0 0.7rem; }

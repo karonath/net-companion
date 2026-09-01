@@ -7,6 +7,8 @@ const snap = ref(null)
 const changes = ref(null)
 const hist = ref([])
 const err = ref('')
+const label = ref('')
+const notes = ref('')
 
 const okChecks = computed(() =>
   snap.value ? snap.value.diag.filter((c) => c.status === 'ok').length : 0
@@ -24,7 +26,7 @@ async function run() {
   busy.value = true
   err.value = ''
   try {
-    const res = await api.checkup()
+    const res = await api.checkup(label.value, notes.value)
     snap.value = res.snapshot
     changes.value = res.changes
     await loadHistory()
@@ -53,6 +55,10 @@ onMounted(loadHistory)
 
 <template>
   <div class="checkup">
+    <div class="meta">
+      <input v-model="label" placeholder="Site (ex: Client X — Salle 2)" />
+      <input v-model="notes" placeholder="Notes (optionnel)" />
+    </div>
     <button class="primary big" @click="run" :disabled="busy">
       {{ busy ? 'Analyse du site…' : 'Lancer le check de site' }}
     </button>
@@ -60,6 +66,7 @@ onMounted(loadHistory)
 
     <div v-if="snap" class="result">
       <div class="summary">
+        <span class="tag muted">{{ new Date(snap.timestamp).toLocaleString() }}</span>
         <span class="tag"><span class="dot green"></span> {{ snap.hosts.length }} hôte(s)</span>
         <span class="tag">
           <span class="dot" :class="okChecks === snap.diag.length ? 'green' : 'orange'"></span>
@@ -99,6 +106,7 @@ onMounted(loadHistory)
 </template>
 
 <style scoped>
+.meta { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.6rem; }
 .big { width: 100%; padding: 0.8rem; font-size: 1rem; }
 .err { color: var(--red); }
 .result { margin-top: 1rem; }

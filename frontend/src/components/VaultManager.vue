@@ -15,6 +15,22 @@ const emptySnmp = () => ({
 const newSnmp = ref(emptySnmp())
 const newSsh = ref({ label: '', username: '', password: '' })
 
+const testIp = ref('')
+const testResults = ref({})
+async function testCred(type, id) {
+  if (!testIp.value) {
+    testResults.value = { ...testResults.value, [id]: { ok: false, detail: "renseignez l'IP de test ci-dessus" } }
+    return
+  }
+  testResults.value = { ...testResults.value, [id]: { pending: true } }
+  try {
+    const r = await api.vaultTest(type, id, testIp.value)
+    testResults.value = { ...testResults.value, [id]: r }
+  } catch (e) {
+    testResults.value = { ...testResults.value, [id]: { ok: false, detail: e.status === 423 ? 'coffre verrouillé' : e.message } }
+  }
+}
+
 async function load() {
   try {
     snmp.value = await api.listSNMP()
@@ -63,13 +79,25 @@ onMounted(load)
   <div class="vault">
     <p v-if="err" class="err">{{ err }}</p>
 
+    <div class="testip">
+      <input v-model="testIp" placeholder="IP de test (pour « Tester »)" />
+    </div>
+
     <section>
       <h3>Communities SNMP</h3>
       <ul>
-        <li v-for="c in snmp" :key="c.id">
-          <span><strong>{{ c.label || c.community || c.securityName }}</strong>
-            <span class="muted"> · {{ c.version === 'v3' ? c.securityName + ' (v3 ' + c.securityLevel + ')' : c.community + ' (v2c)' }}</span></span>
-          <button class="danger sm" @click="delSnmp(c.id)">✕</button>
+        <li v-for="c in snmp" :key="c.id" class="entry">
+          <div class="row">
+            <span><strong>{{ c.label || c.community || c.securityName }}</strong>
+              <span class="muted"> · {{ c.version === 'v3' ? c.securityName + ' (v3 ' + c.securityLevel + ')' : c.community + ' (v2c)' }}</span></span>
+            <span class="acts">
+              <button class="sm" @click="testCred('snmp', c.id)">Tester</button>
+              <button class="danger sm" @click="delSnmp(c.id)">✕</button>
+            </span>
+          </div>
+          <div v-if="testResults[c.id]" class="res" :class="testResults[c.id].ok ? 'ok' : 'ko'">
+            {{ testResults[c.id].pending ? 'test…' : testResults[c.id].detail }}
+          </div>
         </li>
         <li v-if="!snmp.length" class="muted empty">Aucun identifiant SNMP.</li>
       </ul>
@@ -112,10 +140,18 @@ onMounted(load)
     <section>
       <h3>Identifiants SSH</h3>
       <ul>
-        <li v-for="c in ssh" :key="c.id">
-          <span><strong>{{ c.label || c.username }}</strong>
-            <span class="muted"> · {{ c.username }}</span></span>
-          <button class="danger sm" @click="delSsh(c.id)">✕</button>
+        <li v-for="c in ssh" :key="c.id" class="entry">
+          <div class="row">
+            <span><strong>{{ c.label || c.username }}</strong>
+              <span class="muted"> · {{ c.username }}</span></span>
+            <span class="acts">
+              <button class="sm" @click="testCred('ssh', c.id)">Tester</button>
+              <button class="danger sm" @click="delSsh(c.id)">✕</button>
+            </span>
+          </div>
+          <div v-if="testResults[c.id]" class="res" :class="testResults[c.id].ok ? 'ok' : 'ko'">
+            {{ testResults[c.id].pending ? 'test…' : testResults[c.id].detail }}
+          </div>
         </li>
         <li v-if="!ssh.length" class="muted empty">Aucun identifiant.</li>
       </ul>
@@ -139,6 +175,13 @@ li {
   border-radius: 8px; padding: 0.45rem 0.65rem; font-size: 0.9rem;
 }
 li.empty { justify-content: center; font-style: italic; }
+li.entry { flex-direction: column; align-items: stretch; gap: 0.4rem; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.acts { display: flex; gap: 0.4rem; flex: 0 0 auto; }
+.res { font-size: 0.82rem; }
+.res.ok { color: var(--green); }
+.res.ko { color: var(--red); }
+.testip { margin-bottom: 1rem; }
 .form { display: flex; flex-direction: column; gap: 0.5rem; }
 button.sm { padding: 0.2rem 0.5rem; }
 .err { color: var(--red); font-size: 0.9rem; }
