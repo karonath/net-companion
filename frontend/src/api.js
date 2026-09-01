@@ -63,6 +63,12 @@ export const api = {
   diagTraceroute: (target) => req('POST', '/api/diag/traceroute', { target }),
 
   checkup: (label, notes) => req('POST', '/api/checkup', { label, notes }),
+
+  configBackup: (devices) => req('POST', '/api/config/backup', { devices }),
+  configDevices: () => req('GET', '/api/config/devices'),
+  configHistory: (device) => req('GET', '/api/config/history?device=' + encodeURIComponent(device)),
+  configBaseline: (device, id) => req('POST', '/api/config/baseline', { device, id }),
+  configDrift: (device) => req('GET', '/api/config/drift?device=' + encodeURIComponent(device)),
   history: () => req('GET', '/api/history'),
   reportUrl: (id) => '/api/report/' + encodeURIComponent(id),
   reportJsonUrl: (id) => '/api/report/' + encodeURIComponent(id) + '?format=json',
