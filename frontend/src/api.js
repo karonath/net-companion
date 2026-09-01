@@ -47,4 +47,8 @@ export const api = {
   spoof: (b) => req('POST', '/api/nac/spoof', b),
 
   configdiff: (deviceIp) => req('POST', '/api/configdiff', { deviceIp }),
+
+  diag: () => req('GET', '/api/diag'),
+  diagPort: (host, port) => req('POST', '/api/diag/port', { host, port }),
+  diagTraceroute: (target) => req('POST', '/api/diag/traceroute', { target }),
 }
