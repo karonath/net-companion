@@ -22,10 +22,18 @@ func (demoSNMP) Get(oid string) (string, bool) {
 }
 
 func (demoSNMP) WalkStrings(root string) map[string]string {
-	if root == "1.3.6.1.2.1.17.7.1.2.2.1.2" { // dot1qTpFdbPort : index = <vlan>.<mac>
+	switch root {
+	case "1.3.6.1.2.1.17.7.1.2.2.1.2": // dot1qTpFdbPort : index = <vlan>.<mac>
 		return map[string]string{
 			"1.3.6.1.2.1.17.7.1.2.2.1.2.42.0.26.43.60.77.94": "7",
 		}
+	// LLDP-MIB : SW-DEMO-01 voit SW-CORE-02 (port local 5, port distant Gi1/0/24)
+	case "1.0.8802.1.1.2.1.4.1.1.9": // lldpRemSysName
+		return map[string]string{"1.0.8802.1.1.2.1.4.1.1.9.0.5.1": "SW-CORE-02"}
+	case "1.0.8802.1.1.2.1.4.1.1.7": // lldpRemPortId
+		return map[string]string{"1.0.8802.1.1.2.1.4.1.1.7.0.5.1": "GigabitEthernet1/0/24"}
+	case "1.0.8802.1.1.2.1.4.1.1.5": // lldpRemChassisId
+		return map[string]string{"1.0.8802.1.1.2.1.4.1.1.5.0.5.1": "aa:bb:cc:dd:ee:01"}
 	}
 	return nil
 }

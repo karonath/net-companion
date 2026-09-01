@@ -10,6 +10,7 @@ import (
 	"netcompanion/internal/models"
 	"netcompanion/internal/network/arp"
 	"netcompanion/internal/network/netinfo"
+	"netcompanion/internal/network/neighbors"
 	"netcompanion/internal/network/oui"
 	"netcompanion/internal/network/portfinder"
 	"netcompanion/internal/network/radar"
@@ -51,6 +52,39 @@ func registerNetwork(mux *http.ServeMux, v *vault.Vault) {
 			"hostname":  netinfo.ReverseDNS(ip),
 			"latencyMs": quickRTTms(ip),
 		})
+	})
+
+	mux.HandleFunc("POST /api/network/neighbors", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			DeviceIP string `json:"deviceIp"`
+			Demo     bool   `json:"demo"`
+		}
+		if !decodeJSON(w, r, &body) {
+			return
+		}
+		if body.Demo {
+			writeJSON(w, http.StatusOK, map[string]any{"neighbors": neighbors.FromSNMP(sim.DemoSNMPClient())})
+			return
+		}
+		snap, err := v.Snapshot()
+		if err != nil {
+			writeLocked(w, err)
+			return
+		}
+		if len(snap.SNMP) == 0 {
+			writeError(w, http.StatusBadRequest, errNoCommunity)
+			return
+		}
+		device := body.DeviceIP
+		if device == "" {
+			device, _ = netinfo.DefaultGateway()
+		}
+		ns, err := neighborsViaCredentials(device, snap.SNMP)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"neighbors": ns})
 	})
 
 	mux.HandleFunc("POST /api/network/portfinder", func(w http.ResponseWriter, r *http.Request) {
@@ -154,6 +188,25 @@ func readARP() []arp.Neighbor {
 		return nil
 	}
 	return n
+}
+
+// neighborsViaCredentials essaie chaque credential SNMP jusqu'à obtenir des voisins.
+func neighborsViaCredentials(device string, comms []models.SNMPCredential) ([]neighbors.Neighbor, error) {
+	var lastErr error
+	for _, c := range comms {
+		client, closeFn, err := portfinder.NewGoSNMP(device, c)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		ns := neighbors.FromSNMP(client)
+		_ = closeFn()
+		return ns, nil
+	}
+	if lastErr == nil {
+		lastErr = errors.New("découverte des voisins impossible")
+	}
+	return nil, lastErr
 }
 
 // locateViaCommunities essaie chaque community jusqu'à localiser la MAC.
