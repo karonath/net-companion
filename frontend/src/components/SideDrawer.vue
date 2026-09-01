@@ -3,9 +3,11 @@ import { ref } from 'vue'
 import VaultManager from './VaultManager.vue'
 import ConfigDiff from './ConfigDiff.vue'
 import NacPanel from './NacPanel.vue'
+import Diagnostics from './Diagnostics.vue'
 
-const tab = ref('vault')
+const tab = ref('diag')
 const tabs = [
+  { id: 'diag', label: 'Diag' },
   { id: 'vault', label: 'Coffre' },
   { id: 'diff', label: 'Config-Diff' },
   { id: 'nac', label: 'NAC' },
@@ -25,6 +27,7 @@ const tabs = [
       </button>
     </nav>
     <div class="content">
+      <Diagnostics v-show="tab === 'diag'" />
       <VaultManager v-show="tab === 'vault'" />
       <ConfigDiff v-show="tab === 'diff'" />
       <NacPanel v-show="tab === 'nac'" />
