@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { api } from '../api'
+import HelpNote from './HelpNote.vue'
 
 const busy = ref(false)
 const snap = ref(null)
@@ -55,6 +56,12 @@ onMounted(loadHistory)
 
 <template>
   <div class="checkup">
+    <HelpNote>
+      Lance en un clic un état des lieux du site : découverte des hôtes (radar)
+      + diagnostics de connectivité, assemblés en quelques secondes. Chaque
+      passage est horodaté et conservé ; tu peux comparer d'un passage à l'autre
+      et exporter un rapport à joindre à un ticket. Idéal en arrivant sur site.
+    </HelpNote>
     <div class="meta">
       <input v-model="label" placeholder="Site (ex: Client X — Salle 2)" />
       <input v-model="notes" placeholder="Notes (optionnel)" />

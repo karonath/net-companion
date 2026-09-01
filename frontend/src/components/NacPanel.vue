@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { api } from '../api'
+import HelpNote from './HelpNote.vue'
 
 // LLDP
 const lldp = ref(null)
@@ -62,10 +63,13 @@ async function apply() {
 
 <template>
   <div class="nac">
-    <p class="intro muted">
-      Que faire quand le réseau te <strong>bloque</strong> (prise verrouillée, pas d'IP).
-      Différent de l'onglet <strong>Voisins</strong> qui interroge par SNMP (nécessite une IP).
-    </p>
+    <HelpNote>
+      Que faire quand le réseau te <strong>bloque</strong> (prise verrouillée,
+      pas d'IP via DHCP). Deux parades : l'écoute passive LLDP (identifie
+      switch/port même sans IP — nécessite Npcap) et le MAC spoofing (usurpe la
+      MAC d'un appareil légitime pour passer le NAC). Différent de l'onglet
+      Voisins, qui lui interroge par SNMP et nécessite une IP.
+    </HelpNote>
     <section>
       <h3>Écoute passive LLDP/CDP</h3>
       <p class="muted">

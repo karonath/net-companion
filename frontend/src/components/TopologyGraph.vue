@@ -166,7 +166,7 @@ onBeforeUnmount(() => {
   <div class="graph panel">
     <div class="bar">
       <div>
-        <strong>Radar — topologie L2</strong>
+        <strong title="Découvre les hôtes du sous-réseau (table ARP + sondes) et les affiche en graphe. Clique un nœud pour ses détails et des actions. « Voisins LLDP » ajoute les switches adjacents (SNMP).">Radar — topologie L2 ⓘ</strong>
         <span class="muted"> · {{ count }} hôte(s)</span>
       </div>
       <input v-model="filter" class="filter" placeholder="Filtrer (IP/vendor)" />

@@ -19,24 +19,39 @@ var (
 	current Info
 )
 
-// Start démarre le simulateur si NC_SIMULATOR=1 (serveur SSH réel + client SNMP
-// de démo). Sans la variable, ne fait rien (binaire de prod inchangé).
+// Start démarre le simulateur au boot si NC_SIMULATOR=1 (sinon no-op).
 func Start() Info {
 	if os.Getenv("NC_SIMULATOR") != "1" {
 		return Info{}
 	}
-	_, addr, err := StartSSH("127.0.0.1:2222")
+	info, err := Enable()
 	if err != nil {
-		log.Printf("simulateur SSH non démarré: %v", err)
+		log.Printf("simulateur non démarré: %v", err)
 		return Info{}
 	}
-	info := Info{Enabled: true, SSH: addr, DemoMac: DemoMAC, User: DemoSSHUser}
+	return info
+}
+
+// Enable démarre le simulateur à la demande (serveur SSH réel + client SNMP de
+// démo). Idempotent : si déjà actif, renvoie l'état courant sans redémarrer.
+func Enable() (Info, error) {
 	mu.Lock()
-	current = info
-	mu.Unlock()
+	defer mu.Unlock()
+	if current.Enabled {
+		return current, nil
+	}
+	listen := os.Getenv("NC_SIM_SSH_ADDR")
+	if listen == "" {
+		listen = "127.0.0.1:2222"
+	}
+	_, addr, err := StartSSH(listen)
+	if err != nil {
+		return Info{}, err
+	}
+	current = Info{Enabled: true, SSH: addr, DemoMac: DemoMAC, User: DemoSSHUser}
 	log.Printf("SIMULATEUR actif — SSH %s (user %s/%s), MAC démo %s",
 		addr, DemoSSHUser, DemoSSHPassword, DemoMAC)
-	return info
+	return current, nil
 }
 
 // Current renvoie l'état courant du simulateur.
