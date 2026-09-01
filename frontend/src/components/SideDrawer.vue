@@ -4,9 +4,10 @@ import VaultManager from './VaultManager.vue'
 import ConfigDiff from './ConfigDiff.vue'
 import NacPanel from './NacPanel.vue'
 import Diagnostics from './Diagnostics.vue'
+import Checkup from './Checkup.vue'
 import { state } from '../state'
 
-const tab = ref('diag')
+const tab = ref('check')
 
 // Un module peut demander l'ouverture d'un onglet (depuis le détail d'hôte).
 watch(
@@ -16,9 +17,10 @@ watch(
   }
 )
 const tabs = [
+  { id: 'check', label: 'Check' },
   { id: 'diag', label: 'Diag' },
   { id: 'vault', label: 'Coffre' },
-  { id: 'diff', label: 'Config-Diff' },
+  { id: 'diff', label: 'Diff' },
   { id: 'nac', label: 'NAC' },
 ]
 </script>
@@ -36,6 +38,7 @@ const tabs = [
       </button>
     </nav>
     <div class="content">
+      <Checkup v-show="tab === 'check'" />
       <Diagnostics v-show="tab === 'diag'" />
       <VaultManager v-show="tab === 'vault'" />
       <ConfigDiff v-show="tab === 'diff'" />
@@ -61,7 +64,8 @@ const tabs = [
   border-radius: 0;
   background: transparent;
   color: var(--muted);
-  padding: 0.75rem;
+  padding: 0.7rem 0.3rem;
+  font-size: 0.85rem;
 }
 .tabs button.active {
   color: var(--text);
