@@ -11,3 +11,6 @@ backend/net-companion.exe
 # OS
 .DS_Store
 Thumbs.db
+
+# Artefact de link Go (binaire verrouillé pendant un rebuild)
+backend/*.exe~
