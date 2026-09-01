@@ -6,6 +6,7 @@ import (
 
 	"netcompanion/internal/models"
 	"netcompanion/internal/network/configdiff"
+	"netcompanion/internal/sim"
 	"netcompanion/internal/vault"
 )
 
@@ -22,6 +23,17 @@ func registerConfigDiff(mux *http.ServeMux, v *vault.Vault) {
 		}
 		if body.DeviceIP == "" {
 			writeError(w, http.StatusBadRequest, errors.New("deviceIp requis"))
+			return
+		}
+		// Mode démo : l'adresse du simulateur SSH utilise les credentials de démo.
+		if s := sim.Current(); s.Enabled && body.DeviceIP == s.SSH {
+			lines, running, startup, err := diffViaCredentials(body.DeviceIP,
+				[]models.SSHCredential{{Username: sim.DemoSSHUser, Password: sim.DemoSSHPassword}})
+			if err != nil {
+				writeError(w, http.StatusBadGateway, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"lines": lines, "running": running, "startup": startup})
 			return
 		}
 		snap, err := v.Snapshot()

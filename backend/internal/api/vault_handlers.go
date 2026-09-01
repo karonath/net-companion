@@ -113,6 +113,7 @@ func Register(mux *http.ServeMux, v *vault.Vault) {
 	registerNAC(mux)
 	registerConfigDiff(mux, v)
 	registerDiag(mux)
+	registerSim(mux)
 }
 
 func decodePIN(w http.ResponseWriter, r *http.Request) (string, bool) {

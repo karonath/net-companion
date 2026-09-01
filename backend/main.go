@@ -10,6 +10,7 @@ import (
 
 	"netcompanion/internal/browser"
 	"netcompanion/internal/server"
+	"netcompanion/internal/sim"
 	"netcompanion/internal/vault"
 	"netcompanion/web"
 )
@@ -33,6 +34,8 @@ func main() {
 	}
 	v := vault.New(vaultPath)
 	log.Printf("coffre: %s", vaultPath)
+
+	sim.Start() // simulateur d'équipement si NC_SIMULATOR=1 (sinon no-op)
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {

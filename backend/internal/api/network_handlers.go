@@ -13,6 +13,7 @@ import (
 	"netcompanion/internal/network/oui"
 	"netcompanion/internal/network/portfinder"
 	"netcompanion/internal/network/radar"
+	"netcompanion/internal/sim"
 	"netcompanion/internal/vault"
 )
 
@@ -56,8 +57,23 @@ func registerNetwork(mux *http.ServeMux, v *vault.Vault) {
 		var body struct {
 			DeviceIP  string `json:"deviceIp"`
 			TargetMAC string `json:"targetMac"`
+			Demo      bool   `json:"demo"`
 		}
 		if !decodeJSON(w, r, &body) {
+			return
+		}
+		// Mode démo : interroge le switch simulé (client SNMP simulé), sans coffre.
+		if body.Demo {
+			target := body.TargetMAC
+			if target == "" {
+				target = sim.DemoMAC
+			}
+			loc, err := portfinder.Locate(sim.DemoSNMPClient(), target)
+			if err != nil {
+				writeError(w, http.StatusBadGateway, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, loc)
 			return
 		}
 		snap, err := v.Snapshot()
