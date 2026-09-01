@@ -40,8 +40,10 @@ export const api = {
   delSSH: (id) => req('DELETE', '/api/vault/secrets/ssh/' + id),
 
   networkInfo: () => req('GET', '/api/network/info'),
+  networkHost: (ip) => req('GET', '/api/network/host?ip=' + encodeURIComponent(ip)),
   radar: () => req('GET', '/api/network/radar'),
   portfinder: (b) => req('POST', '/api/network/portfinder', b),
+  sim: () => req('GET', '/api/sim'),
 
   lldp: () => req('GET', '/api/nac/lldp'),
   spoof: (b) => req('POST', '/api/nac/spoof', b),

@@ -1,8 +1,21 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { api } from '../api'
+import { state } from '../state'
 
 const deviceIp = ref('')
+
+// Pré-remplissage depuis le détail d'hôte.
+watch(
+  () => state.prefill.configDiffIp,
+  (ip) => {
+    if (ip) deviceIp.value = ip
+  }
+)
+
+function useDemo() {
+  if (state.sim.enabled) deviceIp.value = state.sim.ssh
+}
 const lines = ref([])
 const err = ref('')
 const busy = ref(false)
@@ -31,6 +44,9 @@ async function run() {
 <template>
   <div class="cd">
     <h3>Config-Diff (running vs startup)</h3>
+    <button v-if="state.sim.enabled" class="demo" @click="useDemo">
+      Utiliser l'équipement de démo ({{ state.sim.ssh }})
+    </button>
     <div class="form">
       <input v-model="deviceIp" placeholder="IP de l'équipement (ex: 192.168.1.1)"
              @keyup.enter="run" />
@@ -54,6 +70,7 @@ async function run() {
 
 <style scoped>
 h3 { margin: 0 0 0.6rem; font-size: 0.95rem; }
+.demo { width: 100%; margin-bottom: 0.6rem; font-size: 0.85rem; }
 .form { display: flex; gap: 0.5rem; margin-bottom: 0.8rem; }
 .form input { flex: 1; }
 .err { color: var(--red); font-size: 0.9rem; }

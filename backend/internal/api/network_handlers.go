@@ -2,8 +2,10 @@ package api
 
 import (
 	"errors"
+	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"netcompanion/internal/models"
 	"netcompanion/internal/network/arp"
@@ -11,6 +13,7 @@ import (
 	"netcompanion/internal/network/oui"
 	"netcompanion/internal/network/portfinder"
 	"netcompanion/internal/network/radar"
+	"netcompanion/internal/sim"
 	"netcompanion/internal/vault"
 )
 
@@ -37,12 +40,40 @@ func registerNetwork(mux *http.ServeMux, v *vault.Vault) {
 		writeJSON(w, http.StatusOK, models.RadarResult{Interface: ifi, Hosts: runRadar(ifi)})
 	})
 
+	mux.HandleFunc("GET /api/network/host", func(w http.ResponseWriter, r *http.Request) {
+		ip := r.URL.Query().Get("ip")
+		if ip == "" {
+			writeError(w, http.StatusBadRequest, errors.New("paramètre ip requis"))
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ip":        ip,
+			"hostname":  netinfo.ReverseDNS(ip),
+			"latencyMs": quickRTTms(ip),
+		})
+	})
+
 	mux.HandleFunc("POST /api/network/portfinder", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			DeviceIP  string `json:"deviceIp"`
 			TargetMAC string `json:"targetMac"`
+			Demo      bool   `json:"demo"`
 		}
 		if !decodeJSON(w, r, &body) {
+			return
+		}
+		// Mode démo : interroge le switch simulé (client SNMP simulé), sans coffre.
+		if body.Demo {
+			target := body.TargetMAC
+			if target == "" {
+				target = sim.DemoMAC
+			}
+			loc, err := portfinder.Locate(sim.DemoSNMPClient(), target)
+			if err != nil {
+				writeError(w, http.StatusBadGateway, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, loc)
 			return
 		}
 		snap, err := v.Snapshot()
@@ -102,6 +133,19 @@ func isMulticastOrBroadcastMAC(mac string) bool {
 	return strings.HasPrefix(mac, "01:00:5e") ||
 		strings.HasPrefix(mac, "33:33") ||
 		strings.HasPrefix(mac, "ff:ff:ff:ff:ff:ff")
+}
+
+// quickRTTms mesure un RTT TCP best-effort vers l'hôte (ms), -1 si injoignable.
+func quickRTTms(ip string) int {
+	for _, port := range []string{"443", "80", "22", "53"} {
+		start := time.Now()
+		conn, err := net.DialTimeout("tcp", net.JoinHostPort(ip, port), 700*time.Millisecond)
+		if err == nil {
+			_ = conn.Close()
+			return int(time.Since(start).Milliseconds())
+		}
+	}
+	return -1
 }
 
 func readARP() []arp.Neighbor {

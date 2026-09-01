@@ -2,12 +2,15 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { Network, DataSet } from 'vis-network/standalone'
 import { api } from '../api'
+import { selectHost } from '../state'
 
 const el = ref(null)
 const busy = ref(false)
 const err = ref('')
 const count = ref(0)
 let network = null
+let hostMap = {}
+let gwHint = ''
 
 function styleOptions() {
   const css = getComputedStyle(document.documentElement)
@@ -42,7 +45,8 @@ async function scan() {
     const c = (n) => css.getPropertyValue(n).trim()
 
     const local = res.interface
-    const gwHint = local && local.ipv4 ? local.ipv4.replace(/\.\d+$/, '.1') : ''
+    gwHint = local && local.ipv4 ? local.ipv4.replace(/\.\d+$/, '.1') : ''
+    hostMap = {}
 
     const nodes = new DataSet()
     const edges = new DataSet()
@@ -57,6 +61,7 @@ async function scan() {
 
     for (const h of res.hosts) {
       const isGw = h.ip === gwHint
+      hostMap[h.ip] = h
       const label = [h.ip, h.vendor || h.mac || ''].filter(Boolean).join('\n')
       nodes.add({
         id: h.ip,
@@ -79,6 +84,17 @@ async function scan() {
       // Recadre la caméra sur les nœuds une fois la physique stabilisée
       // (improvedLayout est désactivé car il abandonne au-delà de ~100 nœuds).
       network.on('stabilizationIterationsDone', () => network && network.fit())
+      // Affordance de test E2E : accès à l'instance pour cliquer aux coords exactes.
+      el.value.__ncNetwork = network
+      network.on('click', (params) => {
+        if (!params.nodes.length) return
+        const id = params.nodes[0]
+        if (id === 'local') return
+        const h = hostMap[id]
+        if (h) {
+          selectHost({ ip: h.ip, mac: h.mac || '', vendor: h.vendor || '', isGateway: id === gwHint })
+        }
+      })
     }
     network.fit()
   } catch (e) {
