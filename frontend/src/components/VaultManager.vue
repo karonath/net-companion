@@ -6,7 +6,13 @@ const snmp = ref([])
 const ssh = ref([])
 const err = ref('')
 
-const newSnmp = ref({ label: '', community: '', version: 'v2c' })
+const emptySnmp = () => ({
+  label: '', version: 'v2c', community: '',
+  securityName: '', securityLevel: 'authPriv',
+  authProtocol: 'SHA', authPassphrase: '',
+  privProtocol: 'AES', privPassphrase: '',
+})
+const newSnmp = ref(emptySnmp())
 const newSsh = ref({ label: '', username: '', password: '' })
 
 async function load() {
@@ -20,10 +26,12 @@ async function load() {
 }
 
 async function addSnmp() {
-  if (!newSnmp.value.community) return
+  const c = newSnmp.value
+  if (c.version === 'v2c' && !c.community) return
+  if (c.version === 'v3' && !c.securityName) return
   try {
-    await api.addSNMP({ ...newSnmp.value })
-    newSnmp.value = { label: '', community: '', version: 'v2c' }
+    await api.addSNMP({ ...c })
+    newSnmp.value = emptySnmp()
     load()
   } catch (e) {
     err.value = e.message
@@ -59,19 +67,44 @@ onMounted(load)
       <h3>Communities SNMP</h3>
       <ul>
         <li v-for="c in snmp" :key="c.id">
-          <span><strong>{{ c.label || c.community }}</strong>
-            <span class="muted"> · {{ c.community }} ({{ c.version }})</span></span>
+          <span><strong>{{ c.label || c.community || c.securityName }}</strong>
+            <span class="muted"> · {{ c.version === 'v3' ? c.securityName + ' (v3 ' + c.securityLevel + ')' : c.community + ' (v2c)' }}</span></span>
           <button class="danger sm" @click="delSnmp(c.id)">✕</button>
         </li>
-        <li v-if="!snmp.length" class="muted empty">Aucune community.</li>
+        <li v-if="!snmp.length" class="muted empty">Aucun identifiant SNMP.</li>
       </ul>
       <div class="form">
         <input v-model="newSnmp.label" placeholder="Libellé (ex: prod)" />
-        <input v-model="newSnmp.community" placeholder="Community (ex: public)" />
         <select v-model="newSnmp.version">
-          <option value="v2c">v2c</option>
-          <option value="v1">v1</option>
+          <option value="v2c">SNMP v2c</option>
+          <option value="v3">SNMP v3</option>
         </select>
+
+        <template v-if="newSnmp.version === 'v2c'">
+          <input v-model="newSnmp.community" placeholder="Community (ex: public)" />
+        </template>
+
+        <template v-else>
+          <input v-model="newSnmp.securityName" placeholder="Nom d'utilisateur (securityName)" />
+          <select v-model="newSnmp.securityLevel">
+            <option value="noAuthNoPriv">noAuthNoPriv</option>
+            <option value="authNoPriv">authNoPriv</option>
+            <option value="authPriv">authPriv</option>
+          </select>
+          <template v-if="newSnmp.securityLevel !== 'noAuthNoPriv'">
+            <select v-model="newSnmp.authProtocol">
+              <option>SHA</option><option>SHA256</option><option>SHA512</option><option>MD5</option>
+            </select>
+            <input v-model="newSnmp.authPassphrase" type="password" placeholder="Passphrase auth" />
+          </template>
+          <template v-if="newSnmp.securityLevel === 'authPriv'">
+            <select v-model="newSnmp.privProtocol">
+              <option>AES</option><option>AES256</option><option>DES</option>
+            </select>
+            <input v-model="newSnmp.privPassphrase" type="password" placeholder="Passphrase priv" />
+          </template>
+        </template>
+
         <button class="primary" @click="addSnmp">Ajouter</button>
       </div>
     </section>
