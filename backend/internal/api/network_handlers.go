@@ -160,7 +160,7 @@ func readARP() []arp.Neighbor {
 func locateViaCommunities(device, targetMAC string, comms []models.SNMPCredential) (models.PortLocation, error) {
 	var lastErr error
 	for _, c := range comms {
-		client, closeFn, err := portfinder.NewGoSNMP(device, c.Community)
+		client, closeFn, err := portfinder.NewGoSNMP(device, c)
 		if err != nil {
 			lastErr = err
 			continue
