@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { api } from '../api'
 import { state } from '../state'
+import { friendlyError } from '../errors'
 import HelpNote from './HelpNote.vue'
 
 const devicesText = ref('')
@@ -10,12 +11,14 @@ const err = ref('')
 const results = ref([])
 const devices = ref([])
 const drift = ref(null) // { device, lines }
+const pending = ref('') // ex "192.168.1.1:drift" — action en cours par équipement
 
 async function loadDevices() {
   try {
     devices.value = await api.configDevices()
-  } catch {
+  } catch (e) {
     devices.value = []
+    err.value = friendlyError(e, 'Chargement des équipements impossible.')
   }
 }
 
@@ -34,22 +37,41 @@ async function backup() {
     results.value = res.results || []
     await loadDevices()
   } catch (e) {
-    err.value = e.status === 423 ? 'Coffre verrouillé.' : e.message
+    err.value = friendlyError(e, 'Sauvegarde impossible.')
   } finally {
     busy.value = false
   }
 }
 
 async function setBaseline(device) {
-  const hist = await api.configHistory(device)
-  if (!hist.length) return
-  await api.configBaseline(device, hist[0].id)
-  await loadDevices()
+  pending.value = device + ':baseline'
+  err.value = ''
+  try {
+    const hist = await api.configHistory(device)
+    if (!hist.length) {
+      err.value = 'Aucun backup pour ' + device + ' — sauvegardez-le d’abord.'
+      return
+    }
+    await api.configBaseline(device, hist[0].id)
+    await loadDevices()
+  } catch (e) {
+    err.value = friendlyError(e, 'Définition de la baseline impossible.')
+  } finally {
+    pending.value = ''
+  }
 }
 
 async function showDrift(device) {
-  const d = await api.configDrift(device)
-  drift.value = { device, lines: d.lines || [], hasBaseline: d.hasBaseline }
+  pending.value = device + ':drift'
+  err.value = ''
+  try {
+    const d = await api.configDrift(device)
+    drift.value = { device, lines: d.lines || [], hasBaseline: d.hasBaseline }
+  } catch (e) {
+    err.value = friendlyError(e, 'Analyse de dérive impossible.')
+  } finally {
+    pending.value = ''
+  }
 }
 
 function fmt(ts) {
@@ -94,8 +116,12 @@ onMounted(loadDevices)
               <span v-if="d.hasBaseline" class="tag">baseline</span>
             </span>
             <span class="acts">
-              <button class="sm" @click="setBaseline(d.device)">Baseline</button>
-              <button class="sm" @click="showDrift(d.device)">Drift</button>
+              <button class="sm" @click="setBaseline(d.device)" :disabled="pending.startsWith(d.device + ':')">
+                {{ pending === d.device + ':baseline' ? '…' : 'Baseline' }}
+              </button>
+              <button class="sm" @click="showDrift(d.device)" :disabled="pending.startsWith(d.device + ':')">
+                {{ pending === d.device + ':drift' ? '…' : 'Drift' }}
+              </button>
             </span>
           </div>
         </li>

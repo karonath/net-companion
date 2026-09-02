@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { api } from '../api'
+import { friendlyError } from '../errors'
 import HelpNote from './HelpNote.vue'
 
 const busy = ref(false)
@@ -18,8 +19,9 @@ const okChecks = computed(() =>
 async function loadHistory() {
   try {
     hist.value = await api.history()
-  } catch {
+  } catch (e) {
     hist.value = []
+    err.value = friendlyError(e, "Chargement de l'historique impossible.")
   }
 }
 
@@ -32,14 +34,28 @@ async function run() {
     changes.value = res.changes
     await loadHistory()
   } catch (e) {
-    err.value = e.message
+    err.value = friendlyError(e, 'Check de site impossible.')
   } finally {
     busy.value = false
   }
 }
 
-function openReport(id) {
-  window.open(api.reportUrl(id), '_blank')
+async function openReport(id) {
+  err.value = ''
+  try {
+    await api.openReport(id)
+  } catch (e) {
+    err.value = friendlyError(e, 'Ouverture du rapport impossible.')
+  }
+}
+
+async function downloadJson(id) {
+  err.value = ''
+  try {
+    await api.downloadReportJson(id)
+  } catch (e) {
+    err.value = friendlyError(e, 'Téléchargement du rapport impossible.')
+  }
 }
 
 function fmt(ts) {
@@ -82,10 +98,10 @@ onMounted(loadHistory)
       </div>
 
       <div class="report-actions">
-        <button class="primary" @click="openReport(snap.id)">Ouvrir le rapport</button>
-        <a class="btn" :href="api.reportJsonUrl(snap.id)" :download="'net-companion-' + snap.id + '.json'">
-          Télécharger (JSON)
-        </a>
+        <button class="primary" @click="openReport(snap.id)" title="Ouvre le rapport dans un nouvel onglet">
+          Ouvrir le rapport ↗
+        </button>
+        <button class="btn" @click="downloadJson(snap.id)">Télécharger (JSON)</button>
       </div>
 
       <div v-if="hasChanges" class="changes">
@@ -121,7 +137,8 @@ onMounted(loadHistory)
 .report-actions { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
 .btn {
   display: inline-flex; align-items: center; padding: 0.5rem 0.9rem;
-  border: 1px solid var(--border); border-radius: 8px; color: var(--text); text-decoration: none;
+  border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+  text-decoration: none; background: transparent; font: inherit; cursor: pointer;
 }
 .btn:hover { border-color: var(--accent); }
 h4 { margin: 1rem 0 0.5rem; font-size: 0.9rem; }

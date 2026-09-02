@@ -58,12 +58,9 @@ func requireToken(token string, next http.Handler) http.Handler {
 			http.Error(w, "origin refusée", http.StatusForbidden)
 			return
 		}
-		// Jeton via l'en-tête (appels fetch) OU via ?token= (navigations : ouvrir
-		// un rapport dans un nouvel onglet, téléchargement).
+		// Jeton uniquement via l'en-tête X-NC-Token : jamais dans l'URL (les
+		// rapports sont récupérés par fetch puis ouverts via un Blob local).
 		provided := r.Header.Get("X-NC-Token")
-		if provided == "" {
-			provided = r.URL.Query().Get("token")
-		}
 		if provided != token {
 			http.Error(w, "jeton de session invalide", http.StatusUnauthorized)
 			return

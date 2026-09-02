@@ -1,7 +1,27 @@
 // Client API centralisé : un wrapper par route du backend Net-Companion.
 
-function tokenValue() {
-  return (typeof window !== 'undefined' && window.__NC_TOKEN__) || ''
+// reqRaw récupère une réponse texte brute (rapport HTML/JSON) avec le jeton en
+// en-tête — évite d'exposer le jeton dans l'URL.
+async function reqRaw(method, path) {
+  const opts = { method, headers: {} }
+  if (typeof window !== 'undefined' && window.__NC_TOKEN__) {
+    opts.headers['X-NC-Token'] = window.__NC_TOKEN__
+  }
+  const res = await fetch(path, opts)
+  const text = await res.text()
+  if (!res.ok) {
+    let data = null
+    try {
+      data = JSON.parse(text)
+    } catch {
+      /* réponse non-JSON */
+    }
+    const err = new Error((data && data.error) || res.statusText || `HTTP ${res.status}`)
+    err.status = res.status
+    err.data = data
+    throw err
+  }
+  return text
 }
 
 async function req(method, path, body) {
@@ -77,7 +97,24 @@ export const api = {
   configBaseline: (device, id) => req('POST', '/api/config/baseline', { device, id }),
   configDrift: (device) => req('GET', '/api/config/drift?device=' + encodeURIComponent(device)),
   history: () => req('GET', '/api/history'),
-  reportUrl: (id) => '/api/report/' + encodeURIComponent(id) + '?token=' + encodeURIComponent(tokenValue()),
-  reportJsonUrl: (id) =>
-    '/api/report/' + encodeURIComponent(id) + '?format=json&token=' + encodeURIComponent(tokenValue()),
+
+  // Rapport : récupéré par en-tête (jeton hors URL) puis ouvert/téléchargé via
+  // un Blob local.
+  async openReport(id) {
+    const html = await reqRaw('GET', '/api/report/' + encodeURIComponent(id))
+    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+  },
+  async downloadReportJson(id) {
+    const txt = await reqRaw('GET', '/api/report/' + encodeURIComponent(id) + '?format=json')
+    const url = URL.createObjectURL(new Blob([txt], { type: 'application/json' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'net-companion-' + id + '.json'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+  },
 }

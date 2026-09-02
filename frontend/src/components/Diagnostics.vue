@@ -2,10 +2,12 @@
 import { ref, watch } from 'vue'
 import { api } from '../api'
 import { state, copyText } from '../state'
+import { friendlyError } from '../errors'
 import HelpNote from './HelpNote.vue'
 
 const checks = ref([])
 const busy = ref(false)
+const err = ref('')
 
 // Pré-remplissage depuis le détail d'hôte (test de port + traceroute).
 watch(
@@ -20,11 +22,13 @@ watch(
 
 async function run() {
   busy.value = true
+  err.value = ''
   try {
     const res = await api.diag()
     checks.value = res.checks || []
   } catch (e) {
-    checks.value = [{ name: 'Erreur', status: 'fail', detail: e.message }]
+    checks.value = []
+    err.value = friendlyError(e, 'Diagnostics impossibles.')
   } finally {
     busy.value = false
   }
@@ -34,13 +38,25 @@ async function run() {
 const ph = ref('')
 const pp = ref('')
 const portResult = ref(null)
+const portBusy = ref(false)
 async function checkPort() {
-  if (!ph.value || !pp.value) return
+  const port = Number(pp.value)
+  if (!ph.value) {
+    portResult.value = { status: 'fail', detail: 'Renseignez un hôte.' }
+    return
+  }
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    portResult.value = { status: 'fail', detail: 'Port invalide (1–65535).' }
+    return
+  }
+  portBusy.value = true
   portResult.value = null
   try {
-    portResult.value = await api.diagPort(ph.value, Number(pp.value))
+    portResult.value = await api.diagPort(ph.value, port)
   } catch (e) {
-    portResult.value = { status: 'fail', detail: e.message }
+    portResult.value = { status: 'fail', detail: friendlyError(e, 'Test du port impossible.') }
+  } finally {
+    portBusy.value = false
   }
 }
 
@@ -48,15 +64,20 @@ async function checkPort() {
 const tt = ref('')
 const hops = ref([])
 const trBusy = ref(false)
+const trErr = ref('')
 async function traceroute() {
-  if (!tt.value) return
+  if (!tt.value) {
+    trErr.value = 'Renseignez une cible.'
+    return
+  }
   trBusy.value = true
+  trErr.value = ''
   hops.value = []
   try {
     const res = await api.diagTraceroute(tt.value)
     hops.value = res.hops || []
   } catch (e) {
-    hops.value = [{ num: 0, host: 'erreur: ' + e.message, ms: '' }]
+    trErr.value = friendlyError(e, 'Traceroute impossible.')
   } finally {
     trBusy.value = false
   }
@@ -79,6 +100,7 @@ function dotClass(status) {
       <button class="primary" @click="run" :disabled="busy">
         {{ busy ? 'Analyse…' : 'Lancer les diagnostics' }}
       </button>
+      <p v-if="err" class="err">{{ err }}</p>
       <button v-if="checks.length" class="copy"
         @click="copyText(checks.map(c => c.name + ': ' + c.status + ' — ' + c.detail).join('\n'))">
         Copier
@@ -98,8 +120,8 @@ function dotClass(status) {
       <h3>Test de port</h3>
       <div class="form">
         <input v-model="ph" placeholder="Hôte (ex: 192.168.1.1)" />
-        <input v-model="pp" placeholder="Port" style="max-width: 90px" />
-        <button @click="checkPort">Tester</button>
+        <input v-model="pp" placeholder="Port" inputmode="numeric" style="max-width: 90px" />
+        <button @click="checkPort" :disabled="portBusy">{{ portBusy ? '…' : 'Tester' }}</button>
       </div>
       <div v-if="portResult" class="line">
         <span class="dot" :class="dotClass(portResult.status)"></span>
@@ -113,6 +135,7 @@ function dotClass(status) {
         <input v-model="tt" placeholder="Cible (ex: 1.1.1.1)" @keyup.enter="traceroute" />
         <button @click="traceroute" :disabled="trBusy">{{ trBusy ? '…' : 'Tracer' }}</button>
       </div>
+      <p v-if="trErr" class="err">{{ trErr }}</p>
       <ol v-if="hops.length" class="hops">
         <li v-for="(h, i) in hops" :key="i">
           <span class="num">{{ h.num }}</span>
@@ -137,4 +160,5 @@ h3 { margin: 0 0 0.6rem; font-size: 0.95rem; }
 .hops { margin: 0.7rem 0 0; padding-left: 1.2rem; font-size: 0.85rem; }
 .hops li { display: flex; gap: 0.6rem; margin-bottom: 0.25rem; }
 .hops .num { color: var(--muted); min-width: 1.5rem; }
+.err { color: var(--red); margin: 0.6rem 0 0; }
 </style>

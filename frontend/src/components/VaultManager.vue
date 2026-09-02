@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../api'
+import { friendlyError } from '../errors'
 import HelpNote from './HelpNote.vue'
 
 const snmp = ref([])
@@ -38,39 +39,62 @@ async function load() {
     ssh.value = await api.listSSH()
     err.value = ''
   } catch (e) {
-    err.value = e.message
+    err.value = friendlyError(e, 'Chargement du coffre impossible.')
   }
 }
 
 async function addSnmp() {
   const c = newSnmp.value
-  if (c.version === 'v2c' && !c.community) return
-  if (c.version === 'v3' && !c.securityName) return
+  if (c.version === 'v2c' && !c.community) {
+    err.value = 'Renseignez la community (SNMP v2c).'
+    return
+  }
+  if (c.version === 'v3' && !c.securityName) {
+    err.value = "Renseignez le nom d'utilisateur (SNMP v3)."
+    return
+  }
   try {
+    err.value = ''
     await api.addSNMP({ ...c })
     newSnmp.value = emptySnmp()
     load()
   } catch (e) {
-    err.value = e.message
+    err.value = friendlyError(e, "Ajout de l'identifiant SNMP impossible.")
   }
 }
 async function delSnmp(id) {
-  await api.delSNMP(id)
-  load()
+  if (!window.confirm('Supprimer définitivement cet identifiant SNMP ?')) return
+  try {
+    err.value = ''
+    await api.delSNMP(id)
+    await load()
+  } catch (e) {
+    err.value = friendlyError(e, 'Suppression impossible.')
+  }
 }
 async function addSsh() {
-  if (!newSsh.value.username) return
+  if (!newSsh.value.username) {
+    err.value = "Renseignez l'utilisateur SSH."
+    return
+  }
   try {
+    err.value = ''
     await api.addSSH({ ...newSsh.value })
     newSsh.value = { label: '', username: '', password: '' }
     load()
   } catch (e) {
-    err.value = e.message
+    err.value = friendlyError(e, "Ajout de l'identifiant SSH impossible.")
   }
 }
 async function delSsh(id) {
-  await api.delSSH(id)
-  load()
+  if (!window.confirm('Supprimer définitivement cet identifiant SSH ?')) return
+  try {
+    err.value = ''
+    await api.delSSH(id)
+    await load()
+  } catch (e) {
+    err.value = friendlyError(e, 'Suppression impossible.')
+  }
 }
 
 onMounted(load)
