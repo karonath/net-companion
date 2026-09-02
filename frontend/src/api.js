@@ -1,5 +1,9 @@
 // Client API centralisé : un wrapper par route du backend Net-Companion.
 
+function tokenValue() {
+  return (typeof window !== 'undefined' && window.__NC_TOKEN__) || ''
+}
+
 async function req(method, path, body) {
   const opts = { method, headers: {} }
   // Jeton de session injecté par le serveur dans la page (anti-CSRF/rebinding).
@@ -73,6 +77,7 @@ export const api = {
   configBaseline: (device, id) => req('POST', '/api/config/baseline', { device, id }),
   configDrift: (device) => req('GET', '/api/config/drift?device=' + encodeURIComponent(device)),
   history: () => req('GET', '/api/history'),
-  reportUrl: (id) => '/api/report/' + encodeURIComponent(id),
-  reportJsonUrl: (id) => '/api/report/' + encodeURIComponent(id) + '?format=json',
+  reportUrl: (id) => '/api/report/' + encodeURIComponent(id) + '?token=' + encodeURIComponent(tokenValue()),
+  reportJsonUrl: (id) =>
+    '/api/report/' + encodeURIComponent(id) + '?format=json&token=' + encodeURIComponent(tokenValue()),
 }

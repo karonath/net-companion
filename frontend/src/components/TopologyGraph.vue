@@ -89,18 +89,22 @@ async function scan() {
     const nodes = new DataSet()
     const edges = new DataSet()
 
-    const localId = 'local'
+    // La box (passerelle) est le centre de l'étoile si on la voit ; sinon
+    // c'est cette machine.
+    const hasGateway = res.hosts.some((h) => h.ip === gwHint)
+    const hubId = hasGateway ? gwHint : 'local'
+
     nodes.add({
-      id: localId,
+      id: 'local',
       label: `Cette machine\n${local?.ipv4 || ''}`,
       color: { background: c('--accent'), border: c('--accent') },
-      size: 20,
+      size: hubId === 'local' ? 20 : 14,
     })
 
     for (const h of res.hosts) {
       const isGw = h.ip === gwHint
       hostMap[h.ip] = h
-      const label = [h.ip, h.vendor || h.mac || ''].filter(Boolean).join('\n')
+      const label = [h.name, h.ip, h.vendor || h.model || h.mac || ''].filter(Boolean).join('\n')
       nodes.add({
         id: h.ip,
         label,
@@ -108,9 +112,15 @@ async function scan() {
           background: isGw ? c('--orange') : c('--green'),
           border: isGw ? c('--orange') : c('--green'),
         },
-        size: isGw ? 18 : 12,
+        size: isGw ? 22 : 12,
       })
-      edges.add({ from: localId, to: h.ip })
+      if (h.ip !== hubId) {
+        edges.add({ from: hubId, to: h.ip })
+      }
+    }
+    // Relie « cette machine » à la box quand la box est le centre.
+    if (hubId !== 'local') {
+      edges.add({ from: hubId, to: 'local' })
     }
 
     count.value = res.hosts.length
@@ -132,7 +142,10 @@ async function scan() {
         if (id === 'local') return
         const h = hostMap[id]
         if (h) {
-          selectHost({ ip: h.ip, mac: h.mac || '', vendor: h.vendor || '', isGateway: id === gwHint })
+          selectHost({
+            ip: h.ip, mac: h.mac || '', vendor: h.vendor || '',
+            name: h.name || '', model: h.model || '', isGateway: id === gwHint,
+          })
         }
       })
     }

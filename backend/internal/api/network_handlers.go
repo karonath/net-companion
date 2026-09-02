@@ -10,6 +10,7 @@ import (
 
 	"netcompanion/internal/models"
 	"netcompanion/internal/network/arp"
+	"netcompanion/internal/network/discovery"
 	"netcompanion/internal/network/netinfo"
 	"netcompanion/internal/network/neighbors"
 	"netcompanion/internal/network/oui"
@@ -165,14 +166,37 @@ func runRadar(ifi models.InterfaceInfo) []models.Host {
 		}
 	}
 
-	out := []models.Host{}
+	// Table ARP (vérité L2) + fabricant OUI.
+	byIP := map[string]*models.Host{}
+	var order []string
 	for _, n := range readARP() {
 		if isMulticastOrBroadcastMAC(n.MAC) {
-			continue // ignore les entrées multicast/broadcast (224.x, 239.x, 255.x…)
+			continue // ignore multicast/broadcast (224.x, 239.x, 255.x…)
 		}
-		out = append(out, models.Host{
-			IP: n.IP, MAC: n.MAC, Vendor: oui.Vendor(n.MAC), Alive: true, Source: "arp",
-		})
+		byIP[n.IP] = &models.Host{IP: n.IP, MAC: n.MAC, Vendor: oui.Vendor(n.MAC), Alive: true, Source: "arp"}
+		order = append(order, n.IP)
+	}
+
+	// Mode Universel : enrichit/complète via protocoles ouverts (SSDP + mDNS),
+	// indispensable sur les réseaux domestiques (switchs non managés).
+	for _, d := range discovery.Discover(2*time.Second, ifi.IPv4) {
+		h, ok := byIP[d.IP]
+		if !ok {
+			h = &models.Host{IP: d.IP, Alive: true, Source: d.Source}
+			byIP[d.IP] = h
+			order = append(order, d.IP)
+		}
+		if d.Name != "" && h.Name == "" {
+			h.Name = d.Name
+		}
+		if d.Model != "" && h.Model == "" {
+			h.Model = d.Model
+		}
+	}
+
+	out := make([]models.Host, 0, len(order))
+	for _, ip := range order {
+		out = append(out, *byIP[ip])
 	}
 	return out
 }
