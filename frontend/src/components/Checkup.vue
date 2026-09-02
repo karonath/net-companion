@@ -121,10 +121,10 @@ onMounted(loadHistory)
           <div class="muted">{{ snap.health.summary }}</div>
         </div>
       </div>
-      <ul v-if="snap.health && snap.health.issues.length" class="issues">
-        <li v-for="(is, i) in snap.health.issues" :key="i" :class="is.severity">
-          <span class="sev">{{ sevLabel(is.severity) }}</span>
-          <span><strong>{{ is.title }}</strong> — {{ is.detail }}</span>
+      <ul v-if="snap.health && snap.health.issues && snap.health.issues.length" class="issues">
+        <li v-for="(iss, i) in snap.health.issues" :key="i" :class="iss.severity">
+          <span class="sev">{{ sevLabel(iss.severity) }}</span>
+          <span><strong>{{ iss.title }}</strong> — {{ iss.detail }}</span>
         </li>
       </ul>
 

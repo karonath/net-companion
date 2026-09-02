@@ -35,7 +35,7 @@ type Report struct {
 
 // Analyze produit un bilan de santé à partir des hôtes et des contrôles.
 func Analyze(hosts []models.Host, checks []diag.Check, gateway string) Report {
-	var issues []Issue
+	issues := []Issue{} // jamais nil (JSON = [] même sans anomalie)
 
 	// 1) Contrôles de connectivité en échec/alerte.
 	for _, c := range checks {
