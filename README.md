@@ -9,7 +9,7 @@ navigateur et, **en quelques secondes**, dresse **l'inventaire** du réseau,
 un **rapport prêt à joindre à un ticket** — sans rien installer, sans droits
 administrateur, et **sans qu'aucune donnée ne quitte le poste**.
 
-*Auteur : **Charlys Menuet** (Karonath).*
+*Auteur : **Charlys Menuet** (Karonath). — Logiciel **propriétaire**, tous droits réservés (voir [`LICENSE`](LICENSE)).*
 
 ![Net-Companion Lite — radar, inventaire typé et fiche appareil (mode démo : réseau d'entreprise simulé)](docs/images/net-companion-radar.png)
 
@@ -254,6 +254,19 @@ sur le voisinage **par SNMP**.
 - **Validation sur matériel réel** (SNMPv3, LLDP/CDP, SSH) en complément du simulateur.
 - **Multi-sites / profils** clients avec historique et baselines dédiés.
 - **Intégrations** : export vers ticketing, Slack/Teams, ou une supervision.
+
+---
+
+## Licence & propriété
+
+© 2026 **Charlys Menuet (Karonath)** — **Tous droits réservés**.
+
+Net-Companion est un **logiciel propriétaire** (ni libre ni open source). Il peut
+être mis à disposition à des fins d'**évaluation uniquement**. Sont notamment
+**interdits** sans autorisation écrite de l'auteur : toute copie, redistribution
+ou publication ; la réutilisation du code, des idées, de l'architecture ou de
+l'interface ; la modification ou la création d'œuvres dérivées ; la
+rétro-ingénierie. Détails complets : fichier [`LICENSE`](LICENSE).
 
 ---
 
