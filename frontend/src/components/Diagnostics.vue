@@ -9,14 +9,37 @@ const checks = ref([])
 const busy = ref(false)
 const err = ref('')
 
+// Diagnostic ciblé sur un hôte (joignabilité, latence, ports ouverts, nom).
+const hostTarget = ref('')
+const hostChecks = ref([])
+const hostBusy = ref(false)
+const hostErr = ref('')
+async function runHost(host) {
+  if (!host) return
+  hostTarget.value = host
+  hostBusy.value = true
+  hostErr.value = ''
+  hostChecks.value = []
+  try {
+    const res = await api.diagHost(host)
+    hostChecks.value = res.checks || []
+  } catch (e) {
+    hostErr.value = friendlyError(e, "Diagnostic de l'hôte impossible.")
+  } finally {
+    hostBusy.value = false
+  }
+}
+
 // Pré-remplissage depuis le détail d'hôte (via seq : re-déclenche même si l'hôte
-// ciblé est le même qu'au clic précédent).
+// ciblé est le même qu'au clic précédent). Lance directement le diagnostic ciblé.
 watch(
   () => state.prefill.seq,
   () => {
     if (state.prefill.tab === 'diag' && state.prefill.diagHost) {
-      ph.value = state.prefill.diagHost
-      tt.value = state.prefill.diagHost
+      const h = state.prefill.diagHost
+      ph.value = h
+      tt.value = h
+      runHost(h)
     }
   }
 )
@@ -94,10 +117,30 @@ function dotClass(status) {
     <HelpNote>
       Vérifie la santé réseau sans matériel : passerelle joignable, résolution
       DNS, accès Internet, latence/jitter. En bas, deux outils à la demande :
-      test d'un port TCP (host:port) et traceroute vers une cible.
+      test d'un port TCP (host:port) et traceroute vers une cible. Depuis un hôte
+      du radar, un diagnostic <strong>ciblé</strong> (joignabilité, latence, ports
+      ouverts) s'affiche ci-dessous.
     </HelpNote>
+
+    <section v-if="hostTarget" class="hostdiag">
+      <h3>Diagnostic de l'hôte — {{ hostTarget }}</h3>
+      <button class="primary" @click="runHost(hostTarget)" :disabled="hostBusy">
+        {{ hostBusy ? 'Analyse…' : 'Relancer' }}
+      </button>
+      <p v-if="hostErr" class="err">{{ hostErr }}</p>
+      <ul v-if="hostChecks.length" class="checks">
+        <li v-for="(c, i) in hostChecks" :key="i">
+          <span class="dot" :class="dotClass(c.status)"></span>
+          <div>
+            <strong>{{ c.name }}</strong>
+            <div class="muted">{{ c.detail }}</div>
+          </div>
+        </li>
+      </ul>
+    </section>
+
     <section>
-      <h3>Diagnostics de connectivité</h3>
+      <h3>Diagnostics de connectivité <span class="muted">(Internet / DNS / passerelle)</span></h3>
       <button class="primary" @click="run" :disabled="busy">
         {{ busy ? 'Analyse…' : 'Lancer les diagnostics' }}
       </button>
@@ -162,4 +205,11 @@ h3 { margin: 0 0 0.6rem; font-size: 0.95rem; }
 .hops li { display: flex; gap: 0.6rem; margin-bottom: 0.25rem; }
 .hops .num { color: var(--muted); min-width: 1.5rem; }
 .err { color: var(--red); margin: 0.6rem 0 0; }
+.hostdiag {
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 0.9rem;
+  background: var(--panel-2);
+}
+.hostdiag h3 { margin-top: 0; }
 </style>

@@ -86,6 +86,7 @@ export const api = {
   configdiff: (deviceIp) => req('POST', '/api/configdiff', { deviceIp }),
 
   diag: () => req('GET', '/api/diag'),
+  diagHost: (host) => req('POST', '/api/diag/host', { host }),
   diagPort: (host, port) => req('POST', '/api/diag/port', { host, port }),
   diagTraceroute: (target) => req('POST', '/api/diag/traceroute', { target }),
 

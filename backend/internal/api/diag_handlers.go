@@ -15,6 +15,20 @@ func registerDiag(mux *http.ServeMux) {
 		writeJSON(w, http.StatusOK, map[string]any{"checks": diag.RunSuite(gw)})
 	})
 
+	mux.HandleFunc("POST /api/diag/host", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Host string `json:"host"`
+		}
+		if !decodeJSON(w, r, &body) {
+			return
+		}
+		if body.Host == "" {
+			writeError(w, http.StatusBadRequest, errors.New("host requis"))
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"checks": diag.RunHostSuite(body.Host)})
+	})
+
 	mux.HandleFunc("POST /api/diag/port", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Host string `json:"host"`
