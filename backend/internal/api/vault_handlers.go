@@ -114,7 +114,7 @@ func Register(mux *http.ServeMux, v *vault.Vault) {
 	registerConfigDiff(mux, v)
 	registerDiag(mux)
 	registerSim(mux)
-	registerCheckup(mux)
+	registerCheckup(mux, v)
 	registerVaultTest(mux, v)
 	registerConfig(mux, v)
 }

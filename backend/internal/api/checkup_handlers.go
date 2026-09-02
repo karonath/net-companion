@@ -11,10 +11,11 @@ import (
 	"netcompanion/internal/models"
 	"netcompanion/internal/network/diag"
 	"netcompanion/internal/network/netinfo"
+	"netcompanion/internal/vault"
 )
 
 // registerCheckup ajoute le check de site 1-clic, l'historique et les rapports.
-func registerCheckup(mux *http.ServeMux) {
+func registerCheckup(mux *http.ServeMux, v *vault.Vault) {
 	dir := os.Getenv("NC_HISTORY_DIR")
 	if dir == "" {
 		dir, _ = history.DefaultDir()
@@ -37,7 +38,7 @@ func registerCheckup(mux *http.ServeMux) {
 		var checks []diag.Check
 		var wg sync.WaitGroup
 		wg.Add(2)
-		go func() { defer wg.Done(); hosts = runRadar(ifi) }()
+		go func() { defer wg.Done(); hosts = runRadar(ifi, v) }()
 		go func() { defer wg.Done(); checks = diag.RunSuite(gw) }()
 		wg.Wait()
 

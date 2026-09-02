@@ -9,7 +9,10 @@ const hostname = computed(
 )
 const services = computed(() => (state.selectedHost?.services || []).join(', '))
 const sources = computed(() => {
-  const labels = { mdns: 'mDNS', ssdp: 'UPnP', nbns: 'NetBIOS', banner: 'services TCP', arp: 'ARP' }
+  const labels = {
+    mdns: 'mDNS', ssdp: 'UPnP', nbns: 'NetBIOS', banner: 'services TCP',
+    arp: 'balayage ARP', snmp: 'passerelle (SNMP)',
+  }
   const s = state.selectedHost?.sources || (state.selectedHost?.source ? [state.selectedHost.source] : [])
   return s.map((x) => labels[x] || x).join(', ')
 })

@@ -10,6 +10,7 @@ import (
 
 	"netcompanion/internal/models"
 	"netcompanion/internal/network/arp"
+	"netcompanion/internal/network/arptable"
 	"netcompanion/internal/network/discovery"
 	"netcompanion/internal/network/netinfo"
 	"netcompanion/internal/network/neighbors"
@@ -51,7 +52,7 @@ func registerNetwork(mux *http.ServeMux, v *vault.Vault) {
 			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, models.RadarResult{Interface: ifi, Hosts: runRadar(ifi)})
+		writeJSON(w, http.StatusOK, models.RadarResult{Interface: ifi, Hosts: runRadar(ifi, v)})
 	})
 
 	mux.HandleFunc("GET /api/network/publicip", func(w http.ResponseWriter, r *http.Request) {
@@ -154,35 +155,67 @@ func registerNetwork(mux *http.ServeMux, v *vault.Vault) {
 	})
 }
 
-// runRadar construit la topologie L2 à partir de la table ARP (vérité niveau 2).
-// Le sweep du sous-réseau sert uniquement à réchauffer le cache ARP : les hôtes
-// réels répondent en L2 et y apparaissent. Les résultats du sweep ne créent
-// PAS de nœuds (certains points d'accès acceptent le TCP pour toutes les IP,
-// ce qui produirait des hôtes fantômes).
-func runRadar(ifi models.InterfaceInfo) []models.Host {
-	if ifi.CIDR != "" {
-		if hosts, err := radar.HostsInCIDR(ifi.CIDR, 1024); err == nil {
-			radar.Sweep(hosts, radar.NewProber(), 64) // effet de bord : peuple l'ARP
-		}
-	}
-
-	// Table ARP (vérité L2) + fabricant OUI.
+// runRadar cartographie le réseau de la façon la plus complète possible :
+//  1. balayage ARP actif (SendARP, Windows) : capte tout ce qui répond à l'ARP,
+//     même sans port ouvert (objets, imprimantes, caméras réveillés) ;
+//  2. table ARP de l'OS (ce que le système a déjà résolu) ;
+//  3. inventaire SNMP de la passerelle (entreprise) : table ARP du routeur/switch,
+//     incluant les appareils que le PC ne peut pas joindre directement ;
+//  4. identification précise (mDNS/SSDP/NetBIOS/bannières) pour nommer et typer.
+// Un appareil totalement muet (téléphone en veille profonde qui ignore l'ARP)
+// n'est visible que par l'étape 3 (la passerelle le connaît).
+func runRadar(ifi models.InterfaceInfo, v *vault.Vault) []models.Host {
 	byIP := map[string]*models.Host{}
 	var order []string
-	var arpIPs []string
-	for _, n := range readARP() {
-		if isMulticastOrBroadcastMAC(n.MAC) {
-			continue // ignore multicast/broadcast (224.x, 239.x, 255.x…)
+	// add insère ou complète un hôte (dédup par IP), en écartant multicast/broadcast.
+	add := func(ip, mac, source string) *models.Host {
+		if mac != "" && isMulticastOrBroadcastMAC(mac) {
+			return nil
 		}
-		byIP[n.IP] = &models.Host{IP: n.IP, MAC: n.MAC, Vendor: oui.Vendor(n.MAC), Alive: true, Source: "arp"}
-		order = append(order, n.IP)
-		arpIPs = append(arpIPs, n.IP)
+		h, ok := byIP[ip]
+		if !ok {
+			h = &models.Host{IP: ip, Alive: true, Source: source}
+			byIP[ip] = h
+			order = append(order, ip)
+		}
+		if h.MAC == "" && mac != "" {
+			h.MAC = mac
+			h.Vendor = oui.Vendor(mac)
+		}
+		h.Sources = mergeStrings(h.Sources, []string{source})
+		return h
 	}
 
-	// Identification précise : mDNS multicast + SSDP/UPnP + NetBIOS + bannières TCP.
-	// Indispensable sur réseaux domestiques (switchs non managés) et utile en
-	// entreprise pour typer chaque appareil (nom, modèle, constructeur, type).
-	for _, d := range discovery.Discover(3*time.Second, ifi.IPv4, arpIPs) {
+	// Liste des IP du sous-réseau à sonder.
+	var subnetIPs []string
+	if ifi.CIDR != "" {
+		if hosts, err := radar.HostsInCIDR(ifi.CIDR, 1024); err == nil {
+			subnetIPs = hosts
+		}
+	}
+
+	// 1) Balayage ARP actif (autorité L2 directe : IP + MAC). Sous Windows,
+	//    SendARP résout l'ARP lui-même : pas besoin du balayage TCP.
+	scanned := arp.ScanIPs(subnetIPs)
+	for _, n := range scanned {
+		add(n.IP, n.MAC, "arp")
+	}
+	if len(scanned) == 0 && len(subnetIPs) > 0 {
+		// Repli (non-Windows) : le balayage TCP réchauffe le cache ARP de l'OS.
+		radar.Sweep(subnetIPs, radar.NewProber(), 64)
+	}
+	// 2) Table ARP du système.
+	for _, n := range readARP() {
+		add(n.IP, n.MAC, "arp")
+	}
+	// 3) Inventaire SNMP de la passerelle (silencieux si coffre verrouillé/pas de SNMP).
+	for _, e := range gatewayARPViaSNMP(v) {
+		add(e.IP, e.MAC, "snmp")
+	}
+
+	// 4) Identification précise sur toutes les IP découvertes.
+	targets := append([]string{}, order...)
+	for _, d := range discovery.Discover(3*time.Second, ifi.IPv4, targets) {
 		h, ok := byIP[d.IP]
 		if !ok {
 			h = &models.Host{IP: d.IP, Alive: true, Source: primarySource(d.Sources)}
@@ -305,6 +338,32 @@ func readARP() []arp.Neighbor {
 		return nil
 	}
 	return n
+}
+
+// gatewayARPViaSNMP lit la table ARP de la passerelle par SNMP (inventaire
+// exhaustif entreprise). Renvoie nil en silence si le coffre est verrouillé,
+// s'il n'y a aucune community, ou si la passerelle ne répond pas au SNMP.
+func gatewayARPViaSNMP(v *vault.Vault) []arptable.Entry {
+	snap, err := v.Snapshot()
+	if err != nil || len(snap.SNMP) == 0 {
+		return nil
+	}
+	device, err := netinfo.DefaultGateway()
+	if err != nil || device == "" {
+		return nil
+	}
+	for _, c := range snap.SNMP {
+		client, closeFn, err := portfinder.NewGoSNMP(device, c)
+		if err != nil {
+			continue
+		}
+		entries := arptable.FromSNMP(client)
+		_ = closeFn()
+		if len(entries) > 0 {
+			return entries
+		}
+	}
+	return nil
 }
 
 // neighborsViaCredentials essaie chaque credential SNMP jusqu'à obtenir des voisins.
