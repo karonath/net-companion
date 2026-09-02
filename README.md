@@ -179,22 +179,21 @@ branche sa clé, lance l'outil, et diagnostique.
 
 ## Compilation
 
-Prérequis : Go 1.22+ et Node.js 18+.
+Prérequis : Go 1.27+ (voir `backend/go.mod`) et Node.js 18+.
 
 ```powershell
 pwsh -File build.ps1      # Windows
 ```
 ```bash
-./build.sh                # Linux / macOS
+./build.sh                # Linux
 ```
 
 Le script compile le frontend puis produit **un seul fichier**
 `backend/net-companion(.exe)` (copié aussi dans `release/`). Variable optionnelle
 `NC_ADDR` pour changer l'adresse d'écoute (défaut `127.0.0.1:8080`).
 
-> Le binaire n'est pas signé : SmartScreen / Gatekeeper peuvent alerter au premier
-> lancement. Pour une diffusion, signer avec `signtool` (Windows), `codesign` +
-> notarisation (macOS) ou GPG (Linux).
+> Le binaire n'est pas signé : SmartScreen peut alerter au premier lancement sous
+> Windows. Pour une diffusion large, signer avec `signtool` (Windows) ou GPG (Linux).
 
 ## Architecture
 
