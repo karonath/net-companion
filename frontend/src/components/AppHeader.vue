@@ -35,6 +35,28 @@ const gateway = ref('')
 const publicip = ref('')
 const err = ref(false)
 
+// Élévation (droits administrateur)
+const sys = ref({ elevated: false, canElevate: false })
+const elevating = ref(false)
+async function loadSystem() {
+  try {
+    sys.value = await api.systemInfo()
+  } catch {
+    sys.value = { elevated: false, canElevate: false }
+  }
+}
+async function elevate() {
+  if (!window.confirm('Relancer Net-Companion en administrateur ? Une invite Windows (UAC) va s’afficher, puis une nouvelle fenêtre s’ouvrira.')) return
+  elevating.value = true
+  try {
+    await api.elevate()
+    // Le serveur va quitter puis redémarrer élevé et rouvrir le navigateur.
+  } catch {
+    elevating.value = false
+    // UAC annulée ou erreur : on reste en mode standard.
+  }
+}
+
 async function load() {
   try {
     const info = await api.networkInfo()
@@ -51,7 +73,10 @@ async function load() {
     publicip.value = ''
   }
 }
-onMounted(load)
+onMounted(() => {
+  load()
+  loadSystem()
+})
 </script>
 
 <template>
@@ -85,6 +110,14 @@ onMounted(load)
       </button>
       <span v-if="demoErr" class="tag errtag"><span class="dot red"></span> {{ demoErr }}</span>
 
+      <span v-if="sys.elevated" class="tag admin" title="Fonctions avancées (MAC spoofing) disponibles">
+        <span class="dot green"></span> Administrateur
+      </span>
+      <button v-else-if="sys.canElevate" @click="elevate" :disabled="elevating"
+        title="Relancer avec les droits administrateur (UAC) pour débloquer le MAC spoofing">
+        {{ elevating ? 'Élévation…' : 'Élever (admin)' }}
+      </button>
+
       <span class="tag"><span class="dot green"></span> Coffre déverrouillé</span>
       <button class="danger" @click="$emit('lock')">Verrouiller</button>
     </div>
@@ -116,4 +149,5 @@ onMounted(load)
 }
 .tag.demo { border-color: var(--orange); color: var(--orange); }
 .tag.errtag { border-color: var(--red); color: var(--red); }
+.tag.admin { border-color: var(--green); color: var(--green); }
 </style>

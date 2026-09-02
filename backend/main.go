@@ -19,6 +19,22 @@ import (
 
 const defaultAddr = "127.0.0.1:8080"
 
+// listenRetry tente de se lier à addr, en réessayant jusqu'à total (utile lors
+// d'une relance élevée qui attend la libération du port par l'ancienne instance).
+func listenRetry(addr string, total time.Duration) (net.Listener, error) {
+	deadline := time.Now().Add(total)
+	for {
+		ln, err := net.Listen("tcp", addr)
+		if err == nil {
+			return ln, nil
+		}
+		if time.Now().After(deadline) {
+			return nil, err
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+}
+
 // newToken génère un jeton de session aléatoire (32 octets hex).
 func newToken() string {
 	b := make([]byte, 32)
@@ -50,7 +66,9 @@ func main() {
 
 	sim.Start() // simulateur d'équipement si NC_SIMULATOR=1 (sinon no-op)
 
-	ln, err := net.Listen("tcp", addr)
+	// Réessai de liaison : lors d'une relance en administrateur, l'instance
+	// élevée attend que l'instance standard libère le port.
+	ln, err := listenRetry(addr, 6*time.Second)
 	if err != nil {
 		log.Fatalf("impossible d'écouter sur %s (déjà utilisé ?): %v", addr, err)
 	}

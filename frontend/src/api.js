@@ -86,6 +86,9 @@ export const api = {
   simEnable: () => req('POST', '/api/sim/enable'),
   simDisable: () => req('POST', '/api/sim/disable'),
 
+  systemInfo: () => req('GET', '/api/system'),
+  elevate: () => req('POST', '/api/system/elevate'),
+
   lldp: () => req('GET', '/api/nac/lldp'),
   spoof: (b) => req('POST', '/api/nac/spoof', b),
 
