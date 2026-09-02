@@ -11,6 +11,15 @@ administrateur, et **sans qu'aucune donnée ne quitte le poste**.
 
 *Auteur : **Charlys Menuet** (Karonath).*
 
+![Net-Companion Lite — radar, inventaire typé et fiche appareil (mode démo : réseau d'entreprise simulé)](docs/images/net-companion-radar.png)
+
+> *Radar & inventaire : découverte, identification typée (pare-feu, switch, serveur,
+> imprimante, NAS…), topologie hiérarchique et fiche d'appareil — ici en mode démo.*
+
+![Score de santé du réseau — 100/100, note A](docs/images/net-companion-sante.png)
+
+> *Check de site en 1 clic : verdict de santé `/100`, contrôles et anomalies, rapport exportable.*
+
 ---
 
 ## En un coup d'œil (ce que fait la version Lite)
