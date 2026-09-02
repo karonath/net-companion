@@ -44,6 +44,9 @@ func serveIndex(w http.ResponseWriter, fsys fs.FS, token string) {
 	} else {
 		html = inject + html
 	}
+	// La page ne doit jamais être mise en cache : elle porte le jeton de session
+	// et doit toujours refléter la version courante de l'application.
+	w.Header().Set("Cache-Control", "no-store, must-revalidate")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(html))
 }
