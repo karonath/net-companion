@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { typeIcon, categoryOf } from '../devicetypes'
+import { state } from '../state'
 
 const props = defineProps({
   hosts: { type: Array, default: () => [] },
@@ -10,12 +11,16 @@ const props = defineProps({
 })
 const emit = defineEmits(['select'])
 
+const rootEl = ref(null)
 const collapsed = ref(new Set())
 function toggle(ip) {
   const s = new Set(collapsed.value)
   s.has(ip) ? s.delete(ip) : s.add(ip)
   collapsed.value = s
 }
+
+// IP de l'hôte sélectionné (partagé avec le graphe et la fiche).
+const selectedIp = computed(() => state.selectedHost && state.selectedHost.ip)
 
 function matches(h) {
   const term = props.filter.trim().toLowerCase()
@@ -34,12 +39,15 @@ const model = computed(() => {
   const byIp = {}
   hosts.forEach((h) => (byIp[h.ip] = h))
   const children = {}
+  const parentOf = {}
   const roots = []
   hosts.forEach((h) => {
     let up = h.uplink && byIp[h.uplink] ? h.uplink : null
     if (!up && h.ip !== props.gateway && byIp[props.gateway]) up = props.gateway
-    if (up) (children[up] = children[up] || []).push(h)
-    else roots.push(h)
+    if (up) {
+      (children[up] = children[up] || []).push(h)
+      parentOf[h.ip] = up
+    } else roots.push(h)
   })
   const sortFn = (a, b) => a.ip.localeCompare(b.ip, undefined, { numeric: true })
   roots.sort(sortFn)
@@ -61,7 +69,29 @@ const model = computed(() => {
     return { c, v }
   }
   roots.forEach(dfs)
-  return { children, roots, count, vis }
+  return { children, parentOf, roots, count, vis }
+})
+
+// Quand la sélection change (clic dans le graphe/la fiche), déplier les parents
+// et amener la ligne sélectionnée à l'écran.
+watch(selectedIp, (ip) => {
+  if (!ip) return
+  const { parentOf } = model.value
+  const s = new Set(collapsed.value)
+  let changed = false
+  let p = parentOf[ip]
+  while (p) {
+    if (s.has(p)) {
+      s.delete(p)
+      changed = true
+    }
+    p = parentOf[p]
+  }
+  if (changed) collapsed.value = s
+  nextTick(() => {
+    const row = rootEl.value && rootEl.value.querySelector(`[data-ip="${ip}"]`)
+    if (row) row.scrollIntoView({ block: 'nearest' })
+  })
 })
 
 // Aplatit l'arbre en respectant repli/visibilité (rendu en liste indentée).
@@ -86,8 +116,9 @@ function cat(h) {
 </script>
 
 <template>
-  <div class="tree">
+  <div class="tree" ref="rootEl">
     <div v-for="n in flat" :key="n.host.ip" class="row"
+      :class="{ selected: n.host.ip === selectedIp }" :data-ip="n.host.ip"
       :style="{ paddingLeft: n.depth * 18 + 8 + 'px' }"
       @click="emit('select', n.host)">
       <span v-if="n.hasChildren" class="caret" @click.stop="toggle(n.host.ip)">
@@ -111,6 +142,7 @@ function cat(h) {
   cursor: pointer; border-bottom: 1px solid transparent;
 }
 .row:hover { background: var(--panel-2); }
+.row.selected { background: color-mix(in srgb, var(--accent) 22%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
 .caret { width: 1rem; text-align: center; color: var(--muted); flex: 0 0 auto; }
 .caret.ph { visibility: hidden; }
 .ico { flex: 0 0 auto; font-size: 1.05rem; }

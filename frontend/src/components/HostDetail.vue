@@ -94,7 +94,7 @@ async function locatePort() {
 .card {
   position: absolute;
   top: 4rem;
-  left: 1rem;
+  right: 1rem;
   width: 300px;
   padding: 1rem 1.1rem;
   z-index: 5;

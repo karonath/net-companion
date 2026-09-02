@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { Network, DataSet } from 'vis-network/standalone'
 import { api } from '../api'
 import { friendlyError } from '../errors'
@@ -18,7 +18,6 @@ const autoName = ref('')
 const filter = ref('')
 const activeType = ref('') // filtre de catégorie via la légende ('' = toutes)
 const layoutMode = ref('star') // 'star' | 'tree' (graphe)
-const viewMode = ref('graph') // 'graph' | 'tree' (graphe vs arborescence)
 const autoRefresh = ref(false)
 const hostsRef = ref([]) // hôtes courants (pour l'arborescence)
 const gwRef = ref('') // IP passerelle (pour l'arborescence)
@@ -271,10 +270,16 @@ watch(autoRefresh, (on) => {
 function onTreeSelect(h) {
   selectHost({ ...h, isGateway: h.ip === gwHint })
 }
-// Revenir au graphe (masqué en display:none) : forcer un redraw + recadrage.
-watch(viewMode, (m) => {
-  if (m === 'graph' && network) nextTick(() => { network.redraw(); network.fit() })
-})
+// Synchronise la sélection graphe ↔ arbre ↔ fiche : quand l'hôte sélectionné
+// change (clic dans l'arbre, ou fermeture), on met le graphe en cohérence.
+watch(
+  () => state.selectedHost && state.selectedHost.ip,
+  (ip) => {
+    if (!network) return
+    if (ip && curNodes && curNodes.get(ip)) network.selectNodes([ip])
+    else network.unselectAll()
+  }
+)
 
 // Bascule du mode démo : reconstruire la topologie depuis le backend.
 watch(() => state.sim.enabled, () => scan())
@@ -376,13 +381,9 @@ onBeforeUnmount(() => {
         </select>
         <input v-model="filter" class="filter" placeholder="Filtrer (nom/IP/type…)"
           aria-label="Filtrer les hôtes" />
-        <div class="seg" role="group" aria-label="Vue">
-          <button :class="{ on: viewMode === 'graph' }" @click="viewMode = 'graph'" title="Vue graphe">Graphe</button>
-          <button :class="{ on: viewMode === 'tree' }" @click="viewMode = 'tree'" title="Vue arborescente (dense/entreprise)">Arbre</button>
-        </div>
-        <div v-show="viewMode === 'graph'" class="seg" role="group" aria-label="Disposition">
-          <button :class="{ on: layoutMode === 'star' }" @click="setLayout('star')" title="Vue en étoile">Étoile</button>
-          <button :class="{ on: layoutMode === 'tree' }" @click="setLayout('tree')" title="Hiérarchie L2 (uplinks)">Hiérarchie</button>
+        <div class="seg" role="group" aria-label="Disposition du graphe">
+          <button :class="{ on: layoutMode === 'star' }" @click="setLayout('star')" title="Graphe en étoile">Étoile</button>
+          <button :class="{ on: layoutMode === 'tree' }" @click="setLayout('tree')" title="Graphe hiérarchique (uplinks)">Hiérarchie</button>
         </div>
         <label class="auto" title="Rescan automatique toutes les 15 s, nouveaux hôtes surlignés">
           <input type="checkbox" v-model="autoRefresh" /> Auto
@@ -404,17 +405,20 @@ onBeforeUnmount(() => {
       </button>
       <button v-if="activeType" class="leg-clear" @click="activeType = ''">✕ tout afficher</button>
     </div>
-    <div class="viewarea">
-      <div v-show="viewMode === 'graph'" class="canvas-wrap">
-        <div ref="el" class="canvas"></div>
-        <p v-if="!busy && !err && count === 0" class="empty">
-          Aucun hôte détecté sur ce sous-réseau.<br />
-          <span class="muted">Vérifiez l'interface, ou réveillez les appareils puis rescannez.</span>
-        </p>
-      </div>
-      <div v-show="viewMode === 'tree'" class="treewrap">
+    <div class="split">
+      <div class="treepane">
+        <div class="treehdr">Arborescence</div>
         <TopologyTree :hosts="hostsRef" :gateway="gwRef" :filter="filter"
           :active-type="activeType" @select="onTreeSelect" />
+      </div>
+      <div class="viewarea">
+        <div class="canvas-wrap">
+          <div ref="el" class="canvas"></div>
+          <p v-if="!busy && !err && count === 0" class="empty">
+            Aucun hôte détecté sur ce sous-réseau.<br />
+            <span class="muted">Vérifiez l'interface, ou réveillez les appareils puis rescannez.</span>
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -436,9 +440,22 @@ onBeforeUnmount(() => {
 .seg button.on { background: var(--accent); color: #04101f; }
 .auto { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.82rem; color: var(--muted); }
 .ghost { font-size: 0.82rem; padding: 0.35rem 0.55rem; }
-.viewarea { position: relative; flex: 1; min-height: 0; }
-.canvas-wrap, .treewrap { position: absolute; inset: 0; }
+.split { flex: 1; min-height: 0; display: flex; }
+.treepane {
+  flex: 0 0 300px; width: 300px; min-height: 0; display: flex; flex-direction: column;
+  border-right: 1px solid var(--border);
+}
+.treehdr {
+  flex: 0 0 auto; padding: 0.35rem 0.8rem; font-size: 0.72rem; text-transform: uppercase;
+  letter-spacing: 0.03em; color: var(--muted); border-bottom: 1px solid var(--border);
+}
+.viewarea { position: relative; flex: 1; min-width: 0; min-height: 0; }
+.canvas-wrap { position: absolute; inset: 0; }
 .canvas { height: 100%; min-height: 0; }
+@media (max-width: 900px) {
+  .split { flex-direction: column; }
+  .treepane { flex: 0 0 40%; width: auto; border-right: none; border-bottom: 1px solid var(--border); }
+}
 .empty {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   text-align: center; color: var(--text); margin: 0; pointer-events: none;
