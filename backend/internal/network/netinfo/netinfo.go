@@ -12,29 +12,47 @@ import (
 	"netcompanion/internal/models"
 )
 
-// selectInterface choisit la première interface exploitable (IPv4, non loopback).
-func selectInterface(cands []models.InterfaceInfo) (models.InterfaceInfo, error) {
-	for _, c := range cands {
-		if c.MAC == "" {
-			continue
-		}
-		if c.IPv4 == "" || strings.HasPrefix(c.IPv4, "127.") {
-			continue
-		}
-		return c, nil
+// selectInterface choisit l'interface à utiliser :
+//  1. celle dont le sous-réseau contient la passerelle par défaut (routable) ;
+//  2. sinon la première interface non link-local (169.254.x écartée) ;
+//  3. en dernier recours, la première interface disponible.
+func selectInterface(cands []models.InterfaceInfo, gatewayIP string) (models.InterfaceInfo, error) {
+	if len(cands) == 0 {
+		return models.InterfaceInfo{}, errors.New("aucune interface réseau active avec IPv4 trouvée")
 	}
-	return models.InterfaceInfo{}, errors.New("aucune interface réseau active avec IPv4 trouvée")
+
+	// 1) l'interface qui possède la passerelle par défaut
+	if gw := net.ParseIP(gatewayIP); gw != nil {
+		for _, c := range cands {
+			if _, ipnet, err := net.ParseCIDR(c.CIDR); err == nil && ipnet.Contains(gw) {
+				return c, nil
+			}
+		}
+	}
+
+	// 2) première interface routable (on écarte le link-local APIPA 169.254.x)
+	for _, c := range cands {
+		if ip := net.ParseIP(c.IPv4); ip != nil && !ip.IsLinkLocalUnicast() {
+			return c, nil
+		}
+	}
+
+	// 3) dernier recours
+	return cands[0], nil
 }
 
-// LocalInterface énumère les interfaces système et renvoie l'active.
-func LocalInterface() (models.InterfaceInfo, error) {
+// enumerate liste les interfaces up, non-loopback, avec MAC et IPv4.
+func enumerate() []models.InterfaceInfo {
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		return models.InterfaceInfo{}, err
+		return nil
 	}
-	var cands []models.InterfaceInfo
+	var out []models.InterfaceInfo
 	for _, ifi := range ifaces {
 		if ifi.Flags&net.FlagUp == 0 || ifi.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		if ifi.HardwareAddr.String() == "" {
 			continue
 		}
 		addrs, err := ifi.Addrs()
@@ -43,11 +61,11 @@ func LocalInterface() (models.InterfaceInfo, error) {
 		}
 		for _, a := range addrs {
 			ipnet, ok := a.(*net.IPNet)
-			if !ok || ipnet.IP.To4() == nil {
+			if !ok || ipnet.IP.To4() == nil || ipnet.IP.IsLoopback() {
 				continue
 			}
 			ones, _ := ipnet.Mask.Size()
-			cands = append(cands, models.InterfaceInfo{
+			out = append(out, models.InterfaceInfo{
 				Name: ifi.Name,
 				MAC:  ifi.HardwareAddr.String(),
 				IPv4: ipnet.IP.String(),
@@ -55,16 +73,32 @@ func LocalInterface() (models.InterfaceInfo, error) {
 			})
 		}
 	}
-	return selectInterface(cands)
+	return out
 }
 
-// ReverseDNS renvoie le nom d'hôte (PTR) associé à ip, ou "" si aucun.
-func ReverseDNS(ip string) string {
-	names, err := net.LookupAddr(ip)
-	if err != nil || len(names) == 0 {
-		return ""
+// LocalInterface renvoie l'interface active (auto-détection ancrée sur la passerelle).
+func LocalInterface() (models.InterfaceInfo, error) {
+	gw, _ := DefaultGateway()
+	return selectInterface(enumerate(), gw)
+}
+
+// ListInterfaces renvoie toutes les interfaces exploitables (pour le choix manuel).
+func ListInterfaces() []models.InterfaceInfo {
+	cands := enumerate()
+	if cands == nil {
+		return []models.InterfaceInfo{}
 	}
-	return strings.TrimSuffix(names[0], ".")
+	return cands
+}
+
+// InterfaceByName renvoie l'interface portant ce nom, si elle existe.
+func InterfaceByName(name string) (models.InterfaceInfo, bool) {
+	for _, c := range enumerate() {
+		if c.Name == name {
+			return c, true
+		}
+	}
+	return models.InterfaceInfo{}, false
 }
 
 // DefaultGateway renvoie l'IP de la passerelle par défaut.
@@ -74,4 +108,13 @@ func DefaultGateway() (string, error) {
 		return "", err
 	}
 	return ip.String(), nil
+}
+
+// ReverseDNS renvoie le nom d'hôte (PTR) associé à ip, ou "" si aucun.
+func ReverseDNS(ip string) string {
+	names, err := net.LookupAddr(ip)
+	if err != nil || len(names) == 0 {
+		return ""
+	}
+	return strings.TrimSuffix(names[0], ".")
 }
