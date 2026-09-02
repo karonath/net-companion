@@ -169,28 +169,44 @@ func runRadar(ifi models.InterfaceInfo) []models.Host {
 	// Table ARP (vérité L2) + fabricant OUI.
 	byIP := map[string]*models.Host{}
 	var order []string
+	var arpIPs []string
 	for _, n := range readARP() {
 		if isMulticastOrBroadcastMAC(n.MAC) {
 			continue // ignore multicast/broadcast (224.x, 239.x, 255.x…)
 		}
 		byIP[n.IP] = &models.Host{IP: n.IP, MAC: n.MAC, Vendor: oui.Vendor(n.MAC), Alive: true, Source: "arp"}
 		order = append(order, n.IP)
+		arpIPs = append(arpIPs, n.IP)
 	}
 
-	// Mode Universel : enrichit/complète via protocoles ouverts (SSDP + mDNS),
-	// indispensable sur les réseaux domestiques (switchs non managés).
-	for _, d := range discovery.Discover(2*time.Second, ifi.IPv4) {
+	// Identification précise : mDNS multicast + SSDP/UPnP + NetBIOS + bannières TCP.
+	// Indispensable sur réseaux domestiques (switchs non managés) et utile en
+	// entreprise pour typer chaque appareil (nom, modèle, constructeur, type).
+	for _, d := range discovery.Discover(3*time.Second, ifi.IPv4, arpIPs) {
 		h, ok := byIP[d.IP]
 		if !ok {
-			h = &models.Host{IP: d.IP, Alive: true, Source: d.Source}
+			h = &models.Host{IP: d.IP, Alive: true, Source: primarySource(d.Sources)}
 			byIP[d.IP] = h
 			order = append(order, d.IP)
 		}
-		if d.Name != "" && h.Name == "" {
-			h.Name = d.Name
+		fillHostString(&h.Name, d.Name)
+		fillHostString(&h.Hostname, d.Hostname)
+		fillHostString(&h.Model, d.Model)
+		fillHostString(&h.Manufacturer, d.Manufacturer)
+		fillHostString(&h.DeviceType, d.DeviceType)
+		h.Services = mergeStrings(h.Services, d.Services)
+		h.Sources = mergeStrings(h.Sources, d.Sources)
+	}
+
+	// Reverse-DNS best-effort + inférence de type en dernier recours.
+	for _, h := range byIP {
+		if h.Hostname == "" {
+			if rev := netinfo.ReverseDNS(h.IP); rev != "" {
+				h.Hostname = rev
+			}
 		}
-		if d.Model != "" && h.Model == "" {
-			h.Model = d.Model
+		if h.DeviceType == "" {
+			h.DeviceType = discovery.InferType(h.Name, h.Hostname, h.Model, h.Manufacturer, h.Vendor)
 		}
 	}
 
@@ -199,6 +215,41 @@ func runRadar(ifi models.InterfaceInfo) []models.Host {
 		out = append(out, *byIP[ip])
 	}
 	return out
+}
+
+func fillHostString(dst *string, v string) {
+	if *dst == "" && v != "" {
+		*dst = v
+	}
+}
+
+// mergeStrings unionne deux listes en éliminant les doublons (ordre préservé).
+func mergeStrings(a, b []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, s := range append(append([]string{}, a...), b...) {
+		if s == "" || seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	return out
+}
+
+// primarySource choisit la source la plus « parlante » comme origine principale.
+func primarySource(sources []string) string {
+	for _, pref := range []string{"mdns", "ssdp", "nbns", "banner"} {
+		for _, s := range sources {
+			if s == pref {
+				return pref
+			}
+		}
+	}
+	if len(sources) > 0 {
+		return sources[0]
+	}
+	return "discovery"
 }
 
 // isMulticastOrBroadcastMAC repère les adresses L2 non-unicast à exclure de la

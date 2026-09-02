@@ -1,37 +1,170 @@
-// Package discovery cartographie un réseau non managé via des protocoles ouverts :
-// SSDP/UPnP (port 1900) et mDNS/Bonjour (port 5353). Complète l'ARP/OUI.
+// Package discovery identifie précisément les appareils d'un réseau (domestique
+// ou entreprise) en combinant cinq sources actives, sans dépendance externe ni
+// privilège : mDNS/Bonjour (5353), SSDP/UPnP (1900 + fiche XML), NetBIOS (137),
+// bannières de services TCP, et l'OUI/reverse-DNS côté appelant.
 package discovery
 
 import (
 	"net"
+	"sort"
 	"strings"
 	"sync"
 	"time"
-
-	"golang.org/x/net/dns/dnsmessage"
 )
 
-// Device est un appareil découvert par un protocole ouvert.
+// Device est un appareil identifié. Les champs sont fusionnés depuis toutes les
+// sources qui ont vu l'IP ; Sources liste les techniques qui ont contribué.
 type Device struct {
-	IP     string `json:"ip"`
-	Name   string `json:"name,omitempty"`   // nom d'hôte / instance (mDNS)
-	Model  string `json:"model,omitempty"`  // SERVER/modèle (SSDP)
-	Source string `json:"source"`           // "ssdp" | "mdns"
+	IP           string   `json:"ip"`
+	Name         string   `json:"name,omitempty"`         // nom convivial (mDNS fn/instance, UPnP friendlyName, NetBIOS)
+	Hostname     string   `json:"hostname,omitempty"`     // nom d'hôte technique (mDNS A, reverse-DNS)
+	Model        string   `json:"model,omitempty"`        // modèle matériel (mDNS TXT, UPnP modelName)
+	Manufacturer string   `json:"manufacturer,omitempty"` // constructeur (UPnP manufacturer, bannière)
+	DeviceType   string   `json:"deviceType,omitempty"`   // catégorie devinée (ordinateur, imprimante, TV…)
+	Services     []string `json:"services,omitempty"`     // services annoncés / ports ouverts
+	Sources      []string `json:"sources,omitempty"`      // "mdns" | "ssdp" | "nbns" | "banner"
 }
 
-// parseSSDP extrait le modèle (SERVER) d'une réponse SSDP.
-func parseSSDP(raw string) (server string) {
-	for _, line := range strings.Split(raw, "\n") {
-		line = strings.TrimRight(line, "\r")
-		if i := strings.IndexByte(line, ':'); i > 0 {
-			key := strings.ToUpper(strings.TrimSpace(line[:i]))
-			val := strings.TrimSpace(line[i+1:])
-			if key == "SERVER" {
-				return val
-			}
+// Discover lance les quatre sondes réseau en parallèle (liées à l'interface
+// active srcIP) et fusionne les résultats par IP. hosts (issus d'ARP) est la
+// liste des IP à sonder activement en NetBIOS/bannières ; peut être nil.
+func Discover(timeout time.Duration, srcIP string, hosts []string) []Device {
+	var wg sync.WaitGroup
+	var mdns, ssdp, nbns, banners []Device
+	wg.Add(4)
+	go func() { defer wg.Done(); mdns = MDNS(timeout, srcIP) }()
+	go func() { defer wg.Done(); ssdp = SSDP(timeout, srcIP) }()
+	go func() { defer wg.Done(); nbns = NBNS(timeout, srcIP, hosts) }()
+	go func() { defer wg.Done(); banners = Banners(timeout, hosts) }()
+	wg.Wait()
+
+	all := make([]Device, 0, len(mdns)+len(ssdp)+len(nbns)+len(banners))
+	all = append(all, mdns...)
+	all = append(all, ssdp...)
+	all = append(all, nbns...)
+	all = append(all, banners...)
+	return Merge(all)
+}
+
+// Merge fusionne des Device par IP : chaque champ texte prend la première valeur
+// non vide, les Services et Sources sont unionnés puis triés.
+func Merge(in []Device) []Device {
+	byIP := map[string]*Device{}
+	var order []string
+	for _, d := range in {
+		if d.IP == "" {
+			continue
 		}
+		cur, ok := byIP[d.IP]
+		if !ok {
+			cp := d
+			cp.Services = uniqueSorted(cp.Services)
+			cp.Sources = uniqueSorted(cp.Sources)
+			byIP[d.IP] = &cp
+			order = append(order, d.IP)
+			continue
+		}
+		fillString(&cur.Name, d.Name)
+		fillString(&cur.Hostname, d.Hostname)
+		fillString(&cur.Model, d.Model)
+		fillString(&cur.Manufacturer, d.Manufacturer)
+		fillString(&cur.DeviceType, d.DeviceType)
+		cur.Services = uniqueSorted(append(cur.Services, d.Services...))
+		cur.Sources = uniqueSorted(append(cur.Sources, d.Sources...))
+	}
+	out := make([]Device, 0, len(order))
+	for _, ip := range order {
+		out = append(out, *byIP[ip])
+	}
+	return out
+}
+
+func fillString(dst *string, v string) {
+	if *dst == "" && v != "" {
+		*dst = v
+	}
+}
+
+func uniqueSorted(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, s := range in {
+		s = strings.TrimSpace(s)
+		if s == "" || seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// classifyService devine une catégorie d'appareil depuis un identifiant de
+// service (mDNS "_googlecast._tcp", port "tcp/9100", etc.). Renvoie "" si inconnu.
+func classifyService(svc string) string {
+	s := strings.ToLower(svc)
+	switch {
+	case has(s, "_googlecast", "_airplay", "_raop", "_spotify-connect", "_sonos", "roku", "_androidtvremote"):
+		return "TV / média"
+	case has(s, "_ipp", "_ipps", "_printer", "_pdl-datastream", "tcp/9100", "tcp/515", "tcp/631"):
+		return "imprimante"
+	case has(s, "_scanner", "_uscan"):
+		return "scanner"
+	case has(s, "_smb", "_afpovertcp", "_nfs", "_adisk", "tcp/445", "tcp/139", "nas"):
+		return "ordinateur / NAS"
+	case has(s, "_ssh", "_sftp-ssh", "tcp/22"):
+		return "ordinateur"
+	case has(s, "_homekit", "_hap", "_hue", "_matter", "_miio"):
+		return "objet connecté"
+	case has(s, "_apple-mobdev", "_companion-link", "iphone", "ipad", "android"):
+		return "smartphone / tablette"
+	case has(s, "internetgatewaydevice", "gateway", "router", "_ubnt"):
+		return "routeur / box"
 	}
 	return ""
+}
+
+// InferType devine une catégorie d'appareil à partir de tout indice textuel
+// collecté (nom, hôte, modèle, constructeur, fabricant OUI). Dernier recours
+// quand aucun service n'a livré de type. Renvoie "" si rien ne correspond.
+func InferType(hints ...string) string {
+	s := strings.ToLower(strings.Join(hints, " "))
+	switch {
+	case has(s, "nintendo", "playstation", "sony interactive", "xbox", "steam"):
+		return "console de jeu"
+	case has(s, "washer", "fridge", "refriger", "dishwash", "oven", "microwave", "cooktop", "laundry", "vacuum", "roborock"):
+		return "électroménager"
+	case has(s, "printer", "laserjet", "officejet", "deskjet", "ecotank", "brother", "canon", "lexmark", "kyocera"):
+		return "imprimante"
+	case has(s, "chromecast", "roku", "appletv", "apple tv", "bravia", "firetv", "shield", "smart-tv", "smarttv", " tv", "-tv", "webos", "tizen"):
+		return "TV / média"
+	case has(s, "iphone", "ipad", "android", "pixel", "galaxy", "oneplus", "xiaomi", "huawei", "phone"):
+		return "smartphone / tablette"
+	case has(s, "camera", "webcam", "ipcam", "hikvision", "dahua", "reolink", "nest cam", "ring"):
+		return "caméra"
+	case has(s, "livebox", "freebox", "bbox", "fritz", "router", "gateway", "sagemcom", "netgear", "tp-link", "asus", "ubiquiti", "unifi"):
+		return "routeur / box"
+	case has(s, "synology", "qnap", "nas", "truenas", "diskstation"):
+		return "ordinateur / NAS"
+	case has(s, "raspberr", "esp32", "esp8266", "tasmota", "shelly", "sonoff", "tuya", "smartthings", "samjin"):
+		return "objet connecté"
+	case has(s, "macbook", "imac", "thinkpad", "desktop", "laptop", "-pc", "workstation"):
+		return "ordinateur"
+	}
+	return ""
+}
+
+func has(s string, subs ...string) bool {
+	for _, sub := range subs {
+		if strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
 }
 
 // bindIP renvoie l'adresse d'écoute liée à l'interface active (pour que le
@@ -41,146 +174,4 @@ func bindIP(srcIP string) net.IP {
 		return ip
 	}
 	return net.IPv4zero
-}
-
-// SSDP envoie un M-SEARCH et collecte les équipements qui répondent.
-func SSDP(timeout time.Duration, srcIP string) []Device {
-	group := &net.UDPAddr{IP: net.IPv4(239, 255, 255, 250), Port: 1900}
-	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: bindIP(srcIP), Port: 0})
-	if err != nil {
-		return nil
-	}
-	defer conn.Close()
-
-	msg := "M-SEARCH * HTTP/1.1\r\n" +
-		"HOST: 239.255.255.250:1900\r\n" +
-		"MAN: \"ssdp:discover\"\r\n" +
-		"MX: 1\r\n" +
-		"ST: ssdp:all\r\n\r\n"
-	if _, err := conn.WriteToUDP([]byte(msg), group); err != nil {
-		return nil
-	}
-
-	_ = conn.SetReadDeadline(time.Now().Add(timeout))
-	seen := map[string]Device{}
-	buf := make([]byte, 2048)
-	for {
-		n, src, err := conn.ReadFromUDP(buf)
-		if err != nil {
-			break // deadline atteinte
-		}
-		ip := src.IP.String()
-		if _, ok := seen[ip]; ok {
-			continue
-		}
-		seen[ip] = Device{IP: ip, Model: parseSSDP(string(buf[:n])), Source: "ssdp"}
-	}
-	return toSlice(seen)
-}
-
-// mdnsQuery construit une requête mDNS (bit unicast-response) pour des types courants.
-func mdnsQuery() ([]byte, error) {
-	types := []string{
-		"_services._dns-sd._udp.local.",
-		"_http._tcp.local.", "_googlecast._tcp.local.", "_airplay._tcp.local.",
-		"_ipp._tcp.local.", "_raop._tcp.local.", "_spotify-connect._tcp.local.",
-	}
-	b := dnsmessage.NewBuilder(nil, dnsmessage.Header{})
-	if err := b.StartQuestions(); err != nil {
-		return nil, err
-	}
-	for _, t := range types {
-		name, err := dnsmessage.NewName(t)
-		if err != nil {
-			continue
-		}
-		// Class 0x8001 = IN + bit "unicast response" (réponse en unicast vers nous)
-		_ = b.Question(dnsmessage.Question{Name: name, Type: dnsmessage.TypePTR, Class: dnsmessage.Class(0x8001)})
-	}
-	return b.Finish()
-}
-
-// parseMDNS extrait les enregistrements A (ip -> nom d'hôte) d'une réponse mDNS.
-func parseMDNS(data []byte, out map[string]string) {
-	var p dnsmessage.Parser
-	if _, err := p.Start(data); err != nil {
-		return
-	}
-	_ = p.SkipAllQuestions()
-	collect := func(next func() (dnsmessage.ResourceHeader, error), skip func() error, aRes func() (dnsmessage.AResource, error)) {
-		for {
-			h, err := next()
-			if err != nil {
-				return
-			}
-			if h.Type == dnsmessage.TypeA {
-				a, err := aRes()
-				if err != nil {
-					return
-				}
-				ip := net.IP(a.A[:]).String()
-				name := strings.TrimSuffix(strings.TrimSuffix(h.Name.String(), "."), ".local")
-				if name != "" {
-					out[ip] = name
-				}
-			} else if err := skip(); err != nil {
-				return
-			}
-		}
-	}
-	collect(p.AnswerHeader, p.SkipAnswer, p.AResource)
-	collect(p.AdditionalHeader, p.SkipAdditional, p.AResource)
-}
-
-// MDNS interroge le réseau en mDNS et renvoie les appareils (nom d'hôte + IP).
-func MDNS(timeout time.Duration, srcIP string) []Device {
-	group := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 251), Port: 5353}
-	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: bindIP(srcIP), Port: 0})
-	if err != nil {
-		return nil
-	}
-	defer conn.Close()
-
-	q, err := mdnsQuery()
-	if err != nil {
-		return nil
-	}
-	if _, err := conn.WriteToUDP(q, group); err != nil {
-		return nil
-	}
-
-	_ = conn.SetReadDeadline(time.Now().Add(timeout))
-	names := map[string]string{}
-	buf := make([]byte, 9000)
-	for {
-		n, _, err := conn.ReadFromUDP(buf)
-		if err != nil {
-			break
-		}
-		parseMDNS(buf[:n], names)
-	}
-	var out []Device
-	for ip, name := range names {
-		out = append(out, Device{IP: ip, Name: name, Source: "mdns"})
-	}
-	return out
-}
-
-// Discover lance SSDP et mDNS en parallèle (liés à l'interface active srcIP).
-func Discover(timeout time.Duration, srcIP string) []Device {
-	var wg sync.WaitGroup
-	var ssdp, mdns []Device
-	wg.Add(2)
-	go func() { defer wg.Done(); ssdp = SSDP(timeout, srcIP) }()
-	go func() { defer wg.Done(); mdns = MDNS(timeout, srcIP) }()
-	wg.Wait()
-	return append(ssdp, mdns...)
-}
-
-func toSlice(m map[string]Device) []Device {
-	out := make([]Device, 0, len(m))
-	for _, d := range m {
-		out = append(out, d)
-	}
-	return out
 }

@@ -1,9 +1,18 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { api } from '../api'
 import { state, clearHost, gotoConfigDiff, gotoDiag } from '../state'
 
 const info = ref(null)
+const hostname = computed(
+  () => state.selectedHost?.hostname || info.value?.hostname || ''
+)
+const services = computed(() => (state.selectedHost?.services || []).join(', '))
+const sources = computed(() => {
+  const labels = { mdns: 'mDNS', ssdp: 'UPnP', nbns: 'NetBIOS', banner: 'services TCP', arp: 'ARP' }
+  const s = state.selectedHost?.sources || (state.selectedHost?.source ? [state.selectedHost.source] : [])
+  return s.map((x) => labels[x] || x).join(', ')
+})
 const portMsg = ref('')
 const portState = ref('')
 const busy = ref(false)
@@ -50,16 +59,20 @@ async function locatePort() {
     <button class="close" @click="clearHost" aria-label="Fermer">✕</button>
     <div class="head">
       <span class="dot" :class="state.selectedHost.isGateway ? 'orange' : 'green'"></span>
-      <strong>{{ state.selectedHost.ip }}</strong>
+      <strong>{{ state.selectedHost.name || state.selectedHost.hostname || state.selectedHost.ip }}</strong>
       <span v-if="state.selectedHost.isGateway" class="tag muted">passerelle</span>
+      <span v-else-if="state.selectedHost.deviceType" class="tag muted">{{ state.selectedHost.deviceType }}</span>
     </div>
     <dl>
-      <div v-if="state.selectedHost.name"><dt>Nom (mDNS)</dt><dd>{{ state.selectedHost.name }}</dd></div>
+      <div><dt>IP</dt><dd>{{ state.selectedHost.ip }}</dd></div>
+      <div v-if="hostname"><dt>Nom d'hôte</dt><dd>{{ hostname }}</dd></div>
       <div v-if="state.selectedHost.model"><dt>Modèle</dt><dd>{{ state.selectedHost.model }}</dd></div>
-      <div v-if="state.selectedHost.vendor"><dt>Fabricant</dt><dd>{{ state.selectedHost.vendor }}</dd></div>
+      <div v-if="state.selectedHost.manufacturer"><dt>Constructeur</dt><dd>{{ state.selectedHost.manufacturer }}</dd></div>
+      <div v-if="state.selectedHost.vendor"><dt>Fabricant (MAC)</dt><dd>{{ state.selectedHost.vendor }}</dd></div>
       <div v-if="state.selectedHost.mac"><dt>MAC</dt><dd>{{ state.selectedHost.mac }}</dd></div>
-      <div v-if="info && info.hostname"><dt>Nom d'hôte</dt><dd>{{ info.hostname }}</dd></div>
+      <div v-if="services"><dt>Services</dt><dd>{{ services }}</dd></div>
       <div v-if="info"><dt>Latence</dt><dd>{{ info.latencyMs >= 0 ? info.latencyMs + ' ms' : 'injoignable' }}</dd></div>
+      <div v-if="sources"><dt>Détecté par</dt><dd>{{ sources }}</dd></div>
     </dl>
 
     <div class="actions">

@@ -50,6 +50,38 @@ watch(filter, (q) => {
   if (updates.length) curNodes.update(updates)
 })
 
+// typeIcon associe une catégorie d'appareil à une icône lisible d'un coup d'œil.
+const TYPE_ICONS = {
+  'routeur / box': '🌐',
+  ordinateur: '💻',
+  'ordinateur / NAS': '🖥️',
+  'smartphone / tablette': '📱',
+  imprimante: '🖨️',
+  scanner: '🖨️',
+  'TV / média': '📺',
+  'objet connecté': '💡',
+  'console de jeu': '🎮',
+  'électroménager': '🧺',
+  'caméra': '📷',
+}
+function typeIcon(t) {
+  return TYPE_ICONS[t] || '🔌'
+}
+// Légende affichée sous la barre : icône + catégorie.
+const legend = [
+  { icon: '🌐', label: 'Box / routeur' },
+  { icon: '💻', label: 'Ordinateur' },
+  { icon: '🖥️', label: 'NAS / serveur' },
+  { icon: '📱', label: 'Mobile' },
+  { icon: '🖨️', label: 'Imprimante' },
+  { icon: '📺', label: 'TV / média' },
+  { icon: '🎮', label: 'Console' },
+  { icon: '🧺', label: 'Électroménager' },
+  { icon: '📷', label: 'Caméra' },
+  { icon: '💡', label: 'Objet connecté' },
+  { icon: '🔌', label: 'Autre' },
+]
+
 function styleOptions() {
   const css = getComputedStyle(document.documentElement)
   const c = (n) => css.getPropertyValue(n).trim()
@@ -104,7 +136,10 @@ async function scan() {
     for (const h of res.hosts) {
       const isGw = h.ip === gwHint
       hostMap[h.ip] = h
-      const label = [h.name, h.ip, h.vendor || h.model || h.mac || ''].filter(Boolean).join('\n')
+      const icon = isGw ? '🌐' : typeIcon(h.deviceType)
+      const title = h.name || h.hostname || ''
+      const detail = h.model || h.manufacturer || h.vendor || h.mac || ''
+      const label = [icon + (title ? ' ' + title : ''), h.ip, detail].filter(Boolean).join('\n')
       nodes.add({
         id: h.ip,
         label,
@@ -142,10 +177,7 @@ async function scan() {
         if (id === 'local') return
         const h = hostMap[id]
         if (h) {
-          selectHost({
-            ip: h.ip, mac: h.mac || '', vendor: h.vendor || '',
-            name: h.name || '', model: h.model || '', isGateway: id === gwHint,
-          })
+          selectHost({ ...h, isGateway: id === gwHint })
         }
       })
     }
@@ -229,6 +261,9 @@ onBeforeUnmount(() => {
       </div>
     </div>
     <p v-if="err" class="err">{{ err }}</p>
+    <div class="legend">
+      <span v-for="l in legend" :key="l.label" class="leg-item">{{ l.icon }} {{ l.label }}</span>
+    </div>
     <div ref="el" class="canvas"></div>
   </div>
 </template>
@@ -253,6 +288,17 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
 }
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.9rem;
+  padding: 0.4rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.72rem;
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+.leg-item { white-space: nowrap; }
 .bar-btns { display: flex; gap: 0.5rem; }
 .filter { max-width: 150px; }
 .iface { max-width: 190px; }
