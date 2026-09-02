@@ -115,11 +115,13 @@ function dotClass(status) {
 <template>
   <div class="diag">
     <HelpNote>
-      Vérifie la santé réseau sans matériel : passerelle joignable, résolution
-      DNS, accès Internet, latence/jitter. En bas, deux outils à la demande :
-      test d'un port TCP (host:port) et traceroute vers une cible. Depuis un hôte
-      du radar, un diagnostic <strong>ciblé</strong> (joignabilité, latence, ports
-      ouverts) s'affiche ci-dessous.
+      Bilan de connectivité <strong>complet</strong>, du poste jusqu'à Internet :
+      interface &amp; MTU, serveurs DNS (détectés et testés), passerelle et sa
+      latence, résolution DNS, accès et latence Internet, <strong>perte de
+      paquets</strong> (ICMP), <strong>ports sortants</strong> (filtrage),
+      <strong>IPv6</strong>, portail captif, IP publique et <strong>débit</strong>
+      estimé. En bas, deux outils à la demande : test d'un port TCP et traceroute.
+      Depuis un hôte du radar, un diagnostic <strong>ciblé</strong> s'affiche ici.
     </HelpNote>
 
     <section v-if="hostTarget" class="hostdiag">

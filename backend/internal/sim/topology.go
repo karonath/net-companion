@@ -91,14 +91,19 @@ func DemoHostDiag(ip string) []diag.Check {
 // DemoDiagSuite renvoie un bilan de connectivité complet simulé (tout au vert).
 func DemoDiagSuite() []diag.Check {
 	return []diag.Check{
-		{Name: "Interface locale", Status: diag.StatusOK, Detail: "10.10.0.100 sur eth0 (démo) (10.10.0.100/24)"},
+		{Name: "Interface locale", Status: diag.StatusOK, Detail: "10.10.0.100 sur eth0 (démo) (10.10.0.100/24), MTU 1500"},
+		{Name: "Serveurs DNS", Status: diag.StatusOK, Detail: "10.10.0.11 (2 ms), 1.1.1.1 (10 ms) [démo]"},
 		{Name: "Passerelle joignable", Status: diag.StatusOK, Detail: DemoGateway + " joignable (port 443) [démo]"},
 		{Name: "Latence passerelle", Status: diag.StatusOK, Detail: DemoGateway + ":443 : 1 ms (jitter 0 ms, perte 0%) [démo]"},
 		{Name: "Résolution DNS", Status: diag.StatusOK, Detail: "example.com → 93.184.216.34 (12 ms) [démo]"},
 		{Name: "Accès Internet", Status: diag.StatusOK, Detail: "connecté à 1.1.1.1:443 [démo]"},
 		{Name: "Latence Internet", Status: diag.StatusOK, Detail: "1.1.1.1:443 : 9 ms (jitter 2 ms, perte 0%) [démo]"},
+		{Name: "Perte de paquets", Status: diag.StatusOK, Detail: "0% de perte vers 1.1.1.1 (5 paquets ICMP) [démo]"},
+		{Name: "Ports sortants", Status: diag.StatusOK, Detail: "53, 80, 443 ouverts en sortie [démo]"},
+		{Name: "IPv6", Status: diag.StatusOK, Detail: "actif (adresse globale + sortie Internet) [démo]"},
 		{Name: "Portail captif", Status: diag.StatusOK, Detail: "aucun (accès Internet direct) [démo]"},
 		{Name: "IP publique (WAN)", Status: diag.StatusOK, Detail: "203.0.113.42 [démo]"},
+		{Name: "Débit descendant (estimation)", Status: diag.StatusOK, Detail: "≈ 940 Mbps (2.0 Mo en 0.0s) [démo]"},
 	}
 }
 
