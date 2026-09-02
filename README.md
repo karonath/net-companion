@@ -51,6 +51,18 @@ administrateur, et **sans qu'aucune donnée ne quitte le poste**.
   historisé, exportable (HTML imprimable / JSON) à joindre au ticket ou remettre
   au client.
 
+### Aperçu — diagnostic & rapport
+
+<p align="center">
+  <img src="docs/images/net-companion-diagnostic.png" alt="Diagnostic de connectivité (13 points)" width="320" valign="top">
+  &nbsp;&nbsp;
+  <img src="docs/images/net-companion-rapport.png" alt="Rapport d'intervention réseau : synthèse, score de santé, diagnostics et inventaire" width="600" valign="top">
+</p>
+
+> *À gauche : le **diagnostic 13 points** (du poste au WAN). À droite : le
+> **rapport d'intervention** exportable (HTML imprimable / JSON) — synthèse, score
+> de santé, diagnostics et inventaire complet.*
+
 ## Le gain de temps
 
 | Tâche sur site | À la main (outils disparates) | Avec Net-Companion Lite |
