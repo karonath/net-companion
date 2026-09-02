@@ -59,6 +59,11 @@ func registerNetwork(mux *http.ServeMux, v *vault.Vault) {
 			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
+		// Mode rapide : première vue ARP (~2,5 s) pour un rendu progressif.
+		if r.URL.Query().Get("quick") == "1" {
+			writeJSON(w, http.StatusOK, models.RadarResult{Interface: ifi, Hosts: runRadarQuick(ifi)})
+			return
+		}
 		writeJSON(w, http.StatusOK, models.RadarResult{Interface: ifi, Hosts: runRadar(ifi, v)})
 	})
 
@@ -179,55 +184,14 @@ func registerNetwork(mux *http.ServeMux, v *vault.Vault) {
 // Un appareil totalement muet (téléphone en veille profonde qui ignore l'ARP)
 // n'est visible que par l'étape 3 (la passerelle le connaît).
 func runRadar(ifi models.InterfaceInfo, v *vault.Vault) []models.Host {
-	byIP := map[string]*models.Host{}
-	var order []string
-	// add insère ou complète un hôte (dédup par IP), en écartant multicast/broadcast.
-	add := func(ip, mac, source string) *models.Host {
-		if mac != "" && isMulticastOrBroadcastMAC(mac) {
-			return nil
-		}
-		h, ok := byIP[ip]
-		if !ok {
-			h = &models.Host{IP: ip, Alive: true, Source: source}
-			byIP[ip] = h
-			order = append(order, ip)
-		}
-		if h.MAC == "" && mac != "" {
-			h.MAC = mac
-			h.Vendor = oui.Vendor(mac)
-		}
-		h.Sources = mergeStrings(h.Sources, []string{source})
-		return h
-	}
+	byIP, order := collectARP(ifi)
 
-	// Liste des IP du sous-réseau à sonder.
-	var subnetIPs []string
-	if ifi.CIDR != "" {
-		if hosts, err := radar.HostsInCIDR(ifi.CIDR, 1024); err == nil {
-			subnetIPs = hosts
-		}
-	}
-
-	// 1) Balayage ARP actif (autorité L2 directe : IP + MAC). Sous Windows,
-	//    SendARP résout l'ARP lui-même : pas besoin du balayage TCP.
-	scanned := arp.ScanIPs(subnetIPs)
-	for _, n := range scanned {
-		add(n.IP, n.MAC, "arp")
-	}
-	if len(scanned) == 0 && len(subnetIPs) > 0 {
-		// Repli (non-Windows) : le balayage TCP réchauffe le cache ARP de l'OS.
-		radar.Sweep(subnetIPs, radar.NewProber(), 64)
-	}
-	// 2) Table ARP du système.
-	for _, n := range readARP() {
-		add(n.IP, n.MAC, "arp")
-	}
-	// 3) Inventaire SNMP de la passerelle (silencieux si coffre verrouillé/pas de SNMP).
+	// Inventaire SNMP de la passerelle (silencieux si coffre verrouillé/pas de SNMP).
 	for _, e := range gatewayARPViaSNMP(v) {
-		add(e.IP, e.MAC, "snmp")
+		addHost(byIP, &order, e.IP, e.MAC, "snmp")
 	}
 
-	// 4) Identification précise sur toutes les IP découvertes.
+	// Identification précise sur toutes les IP découvertes.
 	targets := append([]string{}, order...)
 	for _, d := range discovery.Discover(3*time.Second, ifi.IPv4, targets) {
 		h, ok := byIP[d.IP]
@@ -245,8 +209,7 @@ func runRadar(ifi models.InterfaceInfo, v *vault.Vault) []models.Host {
 		h.Sources = mergeStrings(h.Sources, d.Sources)
 	}
 
-	// 5) Classification SNMP (entreprise) : type fiable via sysDescr/sysServices
-	//    sur les équipements qui répondent au SNMP. Silencieux sinon.
+	// Classification SNMP (entreprise) : type fiable via sysDescr/sysServices.
 	classifyViaSNMP(byIP, v)
 
 	// Reverse-DNS best-effort + inférence de type en dernier recours.
@@ -261,6 +224,67 @@ func runRadar(ifi models.InterfaceInfo, v *vault.Vault) []models.Host {
 		}
 	}
 
+	return orderedHosts(byIP, order)
+}
+
+// runRadarQuick renvoie une première vue rapide (balayage ARP seul, ~2,5 s) :
+// IP + MAC + fabricant OUI + type deviné. Sert au rendu progressif du radar
+// avant l'identification complète.
+func runRadarQuick(ifi models.InterfaceInfo) []models.Host {
+	byIP, order := collectARP(ifi)
+	for _, h := range byIP {
+		if h.DeviceType == "" {
+			h.DeviceType = discovery.InferType(h.Name, h.Hostname, h.Model, h.Manufacturer, h.Vendor)
+		}
+	}
+	return orderedHosts(byIP, order)
+}
+
+// addHost insère ou complète un hôte (dédup par IP), en écartant multicast/broadcast.
+func addHost(byIP map[string]*models.Host, order *[]string, ip, mac, source string) *models.Host {
+	if mac != "" && isMulticastOrBroadcastMAC(mac) {
+		return nil
+	}
+	h, ok := byIP[ip]
+	if !ok {
+		h = &models.Host{IP: ip, Alive: true, Source: source}
+		byIP[ip] = h
+		*order = append(*order, ip)
+	}
+	if h.MAC == "" && mac != "" {
+		h.MAC = mac
+		h.Vendor = oui.Vendor(mac)
+	}
+	h.Sources = mergeStrings(h.Sources, []string{source})
+	return h
+}
+
+// collectARP construit la base de la topologie : balayage ARP actif (SendARP)
+// + table ARP de l'OS. C'est la vérité L2 commune aux modes rapide et complet.
+func collectARP(ifi models.InterfaceInfo) (map[string]*models.Host, []string) {
+	byIP := map[string]*models.Host{}
+	var order []string
+
+	var subnetIPs []string
+	if ifi.CIDR != "" {
+		if hosts, err := radar.HostsInCIDR(ifi.CIDR, 1024); err == nil {
+			subnetIPs = hosts
+		}
+	}
+	scanned := arp.ScanIPs(subnetIPs)
+	for _, n := range scanned {
+		addHost(byIP, &order, n.IP, n.MAC, "arp")
+	}
+	if len(scanned) == 0 && len(subnetIPs) > 0 {
+		radar.Sweep(subnetIPs, radar.NewProber(), 64) // repli non-Windows : réchauffe l'ARP
+	}
+	for _, n := range readARP() {
+		addHost(byIP, &order, n.IP, n.MAC, "arp")
+	}
+	return byIP, order
+}
+
+func orderedHosts(byIP map[string]*models.Host, order []string) []models.Host {
 	out := make([]models.Host, 0, len(order))
 	for _, ip := range order {
 		out = append(out, *byIP[ip])

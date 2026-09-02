@@ -18,30 +18,36 @@ func DemoInterface() models.InterfaceInfo {
 	}
 }
 
-// DemoHosts renvoie un parc d'entreprise réaliste et varié pour la démonstration.
+// DemoHosts renvoie un parc d'entreprise réaliste et varié pour la démonstration,
+// avec sa hiérarchie L2 (uplink) : FW → SW-CORE → {serveurs, SW-DIST} → postes.
 func DemoHosts() []models.Host {
-	h := func(ip, mac, vendor, name, model, typ string, services ...string) models.Host {
+	h := func(ip, mac, vendor, name, model, typ, uplink string, services ...string) models.Host {
 		return models.Host{
 			IP: ip, MAC: mac, Vendor: vendor, Name: name, Hostname: name,
-			Model: model, DeviceType: typ, Services: services,
+			Model: model, DeviceType: typ, Uplink: uplink, Services: services,
 			Alive: true, Source: "démo", Sources: []string{"démo"},
 		}
 	}
+	const (
+		fw   = DemoGateway // 10.10.0.1
+		core = "10.10.0.2"
+		dist = "10.10.0.3"
+	)
 	return []models.Host{
-		h(DemoGateway, "10:e9:92:00:00:01", "Fortinet", "FW-EDGE-01", "FortiGate-60F", "pare-feu", "tcp/443", "tcp/22"),
-		h("10.10.0.2", "00:1a:2b:00:00:02", "Cisco", "SW-CORE-01", "Catalyst 9300", "switch", "tcp/22", "tcp/443"),
-		h("10.10.0.3", "00:1a:2b:00:00:03", "Cisco", "SW-DIST-02", "Catalyst 2960-X", "switch", "tcp/22"),
-		h("10.10.0.10", "00:50:56:00:00:10", "VMware", "ESXI-01", "VMware ESXi 7.0", "hyperviseur", "tcp/443", "tcp/902"),
-		h("10.10.0.11", "00:15:5d:00:00:11", "Microsoft", "SRV-DC01", "Windows Server 2022", "serveur", "tcp/445", "tcp/3389", "tcp/53"),
-		h("10.10.0.12", "00:15:5d:00:00:12", "Dell", "SRV-APP02", "Ubuntu Server 22.04", "serveur", "tcp/22", "tcp/443"),
-		h("10.10.0.20", "00:11:32:00:00:20", "Synology", "NAS-01", "DiskStation DS1821+", "NAS / stockage", "tcp/445", "tcp/5001"),
-		h("10.10.0.30", "98:aa:fc:00:00:30", "Aruba", "AP-FLOOR1", "Aruba AP-315", "point d'accès", "tcp/443"),
-		h("10.10.0.40", "00:1b:78:00:00:40", "HP", "PRT-COMPTA", "HP LaserJet M609", "imprimante", "tcp/9100", "tcp/631"),
-		h("10.10.0.50", "00:04:f2:00:00:50", "Polycom", "VOIP-101", "Polycom VVX 411", "téléphone VoIP", "tcp/5060"),
-		h("10.10.0.60", DemoMAC, "Dell", "PC-DUPONT", "OptiPlex 7090", "ordinateur", "tcp/445", "tcp/3389"),
-		h("10.10.0.61", "b8:ca:3a:00:00:61", "Dell", "PC-MARTIN", "Latitude 5540", "ordinateur", "tcp/445"),
-		h("10.10.0.70", "00:40:8c:00:00:70", "Axis", "CAM-LOBBY", "Axis P3245-LVE", "caméra", "tcp/554", "tcp/80"),
-		h("10.10.0.80", "00:c0:b7:00:00:80", "APC", "UPS-SALLE-SERVEUR", "Smart-UPS 1500", "onduleur", "tcp/161"),
+		h(fw, "10:e9:92:00:00:01", "Fortinet", "FW-EDGE-01", "FortiGate-60F", "pare-feu", "", "tcp/443", "tcp/22"),
+		h(core, "00:1a:2b:00:00:02", "Cisco", "SW-CORE-01", "Catalyst 9300", "switch", fw, "tcp/22", "tcp/443"),
+		h(dist, "00:1a:2b:00:00:03", "Cisco", "SW-DIST-02", "Catalyst 2960-X", "switch", core, "tcp/22"),
+		h("10.10.0.10", "00:50:56:00:00:10", "VMware", "ESXI-01", "VMware ESXi 7.0", "hyperviseur", core, "tcp/443", "tcp/902"),
+		h("10.10.0.11", "00:15:5d:00:00:11", "Microsoft", "SRV-DC01", "Windows Server 2022", "serveur", core, "tcp/445", "tcp/3389", "tcp/53"),
+		h("10.10.0.12", "00:15:5d:00:00:12", "Dell", "SRV-APP02", "Ubuntu Server 22.04", "serveur", core, "tcp/22", "tcp/443"),
+		h("10.10.0.20", "00:11:32:00:00:20", "Synology", "NAS-01", "DiskStation DS1821+", "NAS / stockage", core, "tcp/445", "tcp/5001"),
+		h("10.10.0.80", "00:c0:b7:00:00:80", "APC", "UPS-SALLE-SERVEUR", "Smart-UPS 1500", "onduleur", core, "tcp/161"),
+		h("10.10.0.30", "98:aa:fc:00:00:30", "Aruba", "AP-FLOOR1", "Aruba AP-315", "point d'accès", dist, "tcp/443"),
+		h("10.10.0.40", "00:1b:78:00:00:40", "HP", "PRT-COMPTA", "HP LaserJet M609", "imprimante", dist, "tcp/9100", "tcp/631"),
+		h("10.10.0.50", "00:04:f2:00:00:50", "Polycom", "VOIP-101", "Polycom VVX 411", "téléphone VoIP", dist, "tcp/5060"),
+		h("10.10.0.60", DemoMAC, "Dell", "PC-DUPONT", "OptiPlex 7090", "ordinateur", dist, "tcp/445", "tcp/3389"),
+		h("10.10.0.61", "b8:ca:3a:00:00:61", "Dell", "PC-MARTIN", "Latitude 5540", "ordinateur", dist, "tcp/445"),
+		h("10.10.0.70", "00:40:8c:00:00:70", "Axis", "CAM-LOBBY", "Axis P3245-LVE", "caméra", dist, "tcp/554", "tcp/80"),
 	}
 }
 

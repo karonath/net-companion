@@ -19,6 +19,7 @@ type Host struct {
 	Manufacturer string   `json:"manufacturer,omitempty"` // constructeur (UPnP/bannière)
 	DeviceType   string   `json:"deviceType,omitempty"`   // catégorie (ordinateur, imprimante, TV…)
 	Services     []string `json:"services,omitempty"`     // services/ports détectés
+	Uplink       string   `json:"uplink,omitempty"`       // IP de l'équipement parent (topologie L2)
 	Alive        bool     `json:"alive"`
 	Source       string   `json:"source"`  // origine principale : "arp", "mdns", "ssdp"…
 	Sources      []string `json:"sources,omitempty"` // toutes les sondes ayant vu l'hôte
