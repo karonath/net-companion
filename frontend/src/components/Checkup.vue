@@ -75,6 +75,10 @@ function fmt(ts) {
   return new Date(ts).toLocaleString()
 }
 
+function sevLabel(s) {
+  return { critical: 'critique', warning: 'attention', info: 'info' }[s] || s
+}
+
 const hasChanges = computed(() => {
   const c = changes.value
   return c && (c.hostsAdded?.length || c.hostsRemoved?.length || c.gatewayTo || c.checksChanged?.length)
@@ -109,6 +113,20 @@ onMounted(loadHistory)
           {{ okChecks }}/{{ snap.diag.length }} contrôles OK
         </span>
       </div>
+
+      <div v-if="snap.health" class="health" :class="'g-' + snap.health.grade">
+        <div class="score">{{ snap.health.score }}<span>/100</span></div>
+        <div>
+          <div class="grade">Santé réseau — Note {{ snap.health.grade }}</div>
+          <div class="muted">{{ snap.health.summary }}</div>
+        </div>
+      </div>
+      <ul v-if="snap.health && snap.health.issues.length" class="issues">
+        <li v-for="(is, i) in snap.health.issues" :key="i" :class="is.severity">
+          <span class="sev">{{ sevLabel(is.severity) }}</span>
+          <span><strong>{{ is.title }}</strong> — {{ is.detail }}</span>
+        </li>
+      </ul>
 
       <div class="report-actions">
         <button class="primary" @click="openReport(snap.id)" title="Ouvre le rapport dans un nouvel onglet">
@@ -150,6 +168,27 @@ onMounted(loadHistory)
 .err { color: var(--red); }
 .result { margin-top: 1rem; }
 .summary { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+.health {
+  display: flex; align-items: center; gap: 1rem; margin: 0 0 0.8rem;
+  padding: 0.7rem 0.9rem; border: 1px solid var(--border); border-radius: 10px; border-left: 5px solid var(--muted);
+}
+.health .score { font-size: 1.9rem; font-weight: 800; line-height: 1; }
+.health .score span { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+.health .grade { font-weight: 700; }
+.health.g-A { border-left-color: var(--green); }
+.health.g-B { border-left-color: var(--accent); }
+.health.g-C { border-left-color: var(--orange); }
+.health.g-D { border-left-color: var(--orange); }
+.health.g-E { border-left-color: var(--red); }
+.issues { list-style: none; padding: 0; margin: 0 0 1rem; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.88rem; }
+.issues li { display: flex; gap: 0.5rem; align-items: baseline; }
+.issues .sev {
+  flex: 0 0 auto; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em;
+  border-radius: 999px; padding: 0.05rem 0.5rem; border: 1px solid var(--border);
+}
+.issues li.critical .sev { color: var(--red); border-color: var(--red); }
+.issues li.warning .sev { color: var(--orange); border-color: var(--orange); }
+.issues li.info .sev { color: var(--muted); }
 .report-actions { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
 .btn {
   display: inline-flex; align-items: center; padding: 0.5rem 0.9rem;

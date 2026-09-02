@@ -3,6 +3,7 @@ package arp
 
 import (
 	"net"
+	"os"
 	"os/exec"
 	"regexp"
 	"runtime"
@@ -52,6 +53,29 @@ func parseLinux(raw string) []Neighbor {
 	return out
 }
 
+// parseProcArp parse /etc/… /proc/net/arp (Linux) ; ignore les entrées incomplètes.
+func parseProcArp(raw string) []Neighbor {
+	var out []Neighbor
+	for i, line := range strings.Split(raw, "\n") {
+		if i == 0 {
+			continue // en-tête
+		}
+		f := strings.Fields(line)
+		if len(f) < 4 {
+			continue
+		}
+		ip, flags, mac := f[0], f[2], f[3]
+		if flags == "0x0" || mac == "00:00:00:00:00:00" {
+			continue // résolution incomplète
+		}
+		if reIPv4.FindString(ip) == "" {
+			continue
+		}
+		out = append(out, Neighbor{IP: ip, MAC: normalizeMAC(mac)})
+	}
+	return out
+}
+
 // Read lit la table ARP du système courant.
 func Read() ([]Neighbor, error) {
 	if runtime.GOOS == "windows" {
@@ -60,6 +84,12 @@ func Read() ([]Neighbor, error) {
 			return nil, err
 		}
 		return parseWindows(string(raw)), nil
+	}
+	// Linux : /proc/net/arp est toujours disponible (pas de sous-processus ni root).
+	if data, err := os.ReadFile("/proc/net/arp"); err == nil {
+		if ns := parseProcArp(string(data)); len(ns) > 0 {
+			return ns, nil
+		}
 	}
 	raw, err := exec.Command("ip", "neigh").Output()
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	"netcompanion/internal/history"
 	"netcompanion/internal/models"
 	"netcompanion/internal/network/diag"
+	"netcompanion/internal/network/health"
 	"netcompanion/internal/network/netinfo"
 	"netcompanion/internal/sim"
 	"netcompanion/internal/vault"
@@ -54,10 +55,11 @@ func registerCheckup(mux *http.ServeMux, v *vault.Vault) {
 		}
 
 		now := time.Now()
+		hr := health.Analyze(hosts, checks, gw)
 		snap := history.Snapshot{
 			ID: history.NewID(now), Timestamp: now,
 			Label: meta.Label, Notes: meta.Notes,
-			Interface: ifi, Gateway: gw, Hosts: hosts, Diag: checks,
+			Interface: ifi, Gateway: gw, Hosts: hosts, Diag: checks, Health: &hr,
 		}
 
 		prev, hasPrev := store.Latest()

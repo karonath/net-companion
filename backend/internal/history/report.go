@@ -43,6 +43,13 @@ var reportTmpl = template.Must(template.New("report").Funcs(template.FuncMap{
   .pill { display: inline-block; padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
   .ok { color: #0f7b3b; } .warn { color: #9a6700; } .fail { color: #cf222e; }
   .pill.ok { background: #e6f4ea; color: #0f7b3b; } .pill.warn { background: #fdf3d8; color: #9a6700; } .pill.fail { background: #fbe3e4; color: #cf222e; }
+  .pill.sev-critical { background: #fbe3e4; color: #cf222e; } .pill.sev-warning { background: #fdf3d8; color: #9a6700; } .pill.sev-info { background: #e7edf5; color: #4b6584; }
+  .health { display: flex; align-items: center; gap: 1.2rem; margin: 1.4rem 0; padding: 1rem 1.2rem; border: 1px solid var(--line); border-radius: 12px; border-left: 6px solid #8b949e; }
+  .health .score { font-size: 2.4rem; font-weight: 800; line-height: 1; }
+  .health .score span { font-size: 1rem; font-weight: 600; color: var(--muted); }
+  .health .grade { font-weight: 700; }
+  .health.g-A { border-left-color: #1a7f37; } .health.g-B { border-left-color: #4c8dff; }
+  .health.g-C { border-left-color: #9a6700; } .health.g-D { border-left-color: #e16f24; } .health.g-E { border-left-color: #cf222e; }
   .added { color: #0f7b3b; } .removed { color: #cf222e; }
   .types span { display: inline-block; margin: 0 0.9rem 0.3rem 0; font-size: 0.85rem; }
   .types b { color: var(--accent); }
@@ -74,6 +81,23 @@ var reportTmpl = template.Must(template.New("report").Funcs(template.FuncMap{
     <div class="card"><div class="n {{if eq .ChecksOK .ChecksTotal}}ok{{else}}warn{{end}}">{{.ChecksOK}}/{{.ChecksTotal}}</div><div class="l">Contrôles OK</div></div>
     <div class="card"><div class="n">{{len .Types}}</div><div class="l">Catégories d'appareils</div></div>
   </div>
+
+  {{if .Snap.Health}}
+  <div class="health g-{{.Snap.Health.Grade}}">
+    <div class="score">{{.Snap.Health.Score}}<span>/100</span></div>
+    <div class="hmeta">
+      <div class="grade">Santé réseau — Note {{.Snap.Health.Grade}}</div>
+      <div class="muted">{{.Snap.Health.Summary}}</div>
+    </div>
+  </div>
+  {{if .Snap.Health.Issues}}
+  <h2>Anomalies détectées</h2>
+  <table>
+    <tr><th>Gravité</th><th>Type</th><th>Détail</th></tr>
+    {{range .Snap.Health.Issues}}<tr><td><span class="pill sev-{{.Severity}}">{{.Severity}}</span></td><td>{{.Title}}</td><td>{{.Detail}}</td></tr>{{end}}
+  </table>
+  {{end}}
+  {{end}}
 
   {{if .Types}}
   <h2>Synthèse du parc</h2>

@@ -6,6 +6,7 @@ import (
 
 	"netcompanion/internal/models"
 	"netcompanion/internal/network/diag"
+	"netcompanion/internal/network/health"
 )
 
 // Snapshot est un cliché d'intervention (inventaire + diagnostics horodatés).
@@ -18,6 +19,7 @@ type Snapshot struct {
 	Gateway   string               `json:"gateway"`
 	Hosts     []models.Host        `json:"hosts"`
 	Diag      []diag.Check         `json:"diag"`
+	Health    *health.Report       `json:"health,omitempty"`
 }
 
 // Meta est le résumé d'un snapshot pour la liste d'historique.
