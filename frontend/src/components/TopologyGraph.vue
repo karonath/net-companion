@@ -9,6 +9,18 @@ const busy = ref(false)
 const nbBusy = ref(false)
 const err = ref('')
 const count = ref(0)
+const ifaces = ref([])
+const autoName = ref('')
+
+async function loadInterfaces() {
+  try {
+    const res = await api.networkInterfaces()
+    ifaces.value = res.interfaces || []
+    autoName.value = res.auto || ''
+  } catch {
+    ifaces.value = []
+  }
+}
 let network = null
 let hostMap = {}
 let gwHint = ''
@@ -66,7 +78,7 @@ async function scan() {
   busy.value = true
   err.value = ''
   try {
-    const res = await api.radar()
+    const res = await api.radar(state.selectedIface)
     const css = getComputedStyle(document.documentElement)
     const c = (n) => css.getPropertyValue(n).trim()
 
@@ -168,7 +180,14 @@ async function addNeighbors() {
   }
 }
 
-onMounted(scan)
+function onIfaceChange() {
+  scan()
+}
+
+onMounted(() => {
+  loadInterfaces()
+  scan()
+})
 onBeforeUnmount(() => {
   if (network) network.destroy()
 })
@@ -181,6 +200,11 @@ onBeforeUnmount(() => {
         <strong title="Découvre les hôtes du sous-réseau (table ARP + sondes) et les affiche en graphe. Clique un nœud pour ses détails et des actions. « Voisins LLDP » ajoute les switches adjacents (SNMP).">Radar — topologie L2 ⓘ</strong>
         <span class="muted"> · {{ count }} hôte(s)</span>
       </div>
+      <select v-model="state.selectedIface" class="iface" @change="onIfaceChange"
+        title="Mode Universel : forcer l'interface à scanner (défaut : auto)">
+        <option value="">Auto{{ autoName ? ' (' + autoName + ')' : '' }}</option>
+        <option v-for="i in ifaces" :key="i.name" :value="i.name">{{ i.name }} · {{ i.ipv4 }}</option>
+      </select>
       <input v-model="filter" class="filter" placeholder="Filtrer (IP/vendor)" />
       <div class="bar-btns">
         <button @click="addNeighbors" :disabled="nbBusy" title="Découvrir les voisins LLDP/CDP par SNMP">
@@ -217,7 +241,8 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 .bar-btns { display: flex; gap: 0.5rem; }
-.filter { max-width: 170px; margin: 0 0.5rem; }
+.filter { max-width: 150px; }
+.iface { max-width: 190px; }
 .bar { gap: 0.5rem; flex-wrap: wrap; }
 .err {
   color: var(--red);

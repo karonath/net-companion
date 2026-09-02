@@ -47,7 +47,8 @@ export const api = {
   networkInfo: () => req('GET', '/api/network/info'),
   networkHost: (ip) => req('GET', '/api/network/host?ip=' + encodeURIComponent(ip)),
   publicIP: () => req('GET', '/api/network/publicip'),
-  radar: () => req('GET', '/api/network/radar'),
+  radar: (iface) => req('GET', '/api/network/radar' + (iface ? '?iface=' + encodeURIComponent(iface) : '')),
+  networkInterfaces: () => req('GET', '/api/network/interfaces'),
   portfinder: (b) => req('POST', '/api/network/portfinder', b),
   neighbors: (deviceIp, demo) =>
     req('POST', '/api/network/neighbors', demo ? { demo: true } : { deviceIp }),
