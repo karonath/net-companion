@@ -221,7 +221,7 @@ func TestClassifyService(t *testing.T) {
 		"_googlecast._tcp": "TV / média",
 		"tcp/9100":         "imprimante",
 		"_ssh._tcp":        "ordinateur",
-		"tcp/445":          "ordinateur / NAS",
+		"tcp/445":          "ordinateur",
 		"_hap._tcp":        "objet connecté",
 	}
 	for svc, want := range cases {

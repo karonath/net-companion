@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { Network, DataSet } from 'vis-network/standalone'
 import { api } from '../api'
 import { selectHost, state } from '../state'
@@ -51,36 +51,41 @@ watch(filter, (q) => {
 })
 
 // typeIcon associe une catégorie d'appareil à une icône lisible d'un coup d'œil.
+// Taxonomie complète (grand public + entreprise). Chaque type a son icône.
 const TYPE_ICONS = {
   'routeur / box': '🌐',
+  switch: '🔀',
+  'pare-feu': '🛡️',
+  "point d'accès": '📡',
+  serveur: '🖥️',
+  hyperviseur: '⚙️',
+  'NAS / stockage': '🗄️',
   ordinateur: '💻',
-  'ordinateur / NAS': '🖥️',
   'smartphone / tablette': '📱',
   imprimante: '🖨️',
   scanner: '🖨️',
   'TV / média': '📺',
-  'objet connecté': '💡',
+  'téléphone VoIP': '☎️',
   'console de jeu': '🎮',
   'électroménager': '🧺',
   'caméra': '📷',
+  onduleur: '🔋',
+  'automate / OT': '🏭',
+  'objet connecté': '💡',
+  Autre: '🔌',
 }
 function typeIcon(t) {
   return TYPE_ICONS[t] || '🔌'
 }
-// Légende affichée sous la barre : icône + catégorie.
-const legend = [
-  { icon: '🌐', label: 'Box / routeur' },
-  { icon: '💻', label: 'Ordinateur' },
-  { icon: '🖥️', label: 'NAS / serveur' },
-  { icon: '📱', label: 'Mobile' },
-  { icon: '🖨️', label: 'Imprimante' },
-  { icon: '📺', label: 'TV / média' },
-  { icon: '🎮', label: 'Console' },
-  { icon: '🧺', label: 'Électroménager' },
-  { icon: '📷', label: 'Caméra' },
-  { icon: '💡', label: 'Objet connecté' },
-  { icon: '🔌', label: 'Autre' },
-]
+
+// Légende DYNAMIQUE : uniquement les catégories réellement présentes, avec le
+// nombre d'appareils par type (recalculée à chaque scan).
+const typeCounts = ref({})
+const legendItems = computed(() =>
+  Object.entries(typeCounts.value)
+    .map(([label, count]) => ({ label, count, icon: typeIcon(label) }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+)
 
 function styleOptions() {
   const css = getComputedStyle(document.documentElement)
@@ -133,10 +138,15 @@ async function scan() {
       size: hubId === 'local' ? 20 : 14,
     })
 
+    const counts = {}
     for (const h of res.hosts) {
       const isGw = h.ip === gwHint
       hostMap[h.ip] = h
-      const icon = isGw ? '🌐' : typeIcon(h.deviceType)
+      // Catégorie retenue pour l'affichage et la légende (la passerelle est
+      // toujours présentée comme box/routeur).
+      const category = isGw ? 'routeur / box' : h.deviceType || 'Autre'
+      counts[category] = (counts[category] || 0) + 1
+      const icon = typeIcon(category)
       const title = h.name || h.hostname || ''
       const detail = h.model || h.manufacturer || h.vendor || h.mac || ''
       const label = [icon + (title ? ' ' + title : ''), h.ip, detail].filter(Boolean).join('\n')
@@ -153,6 +163,7 @@ async function scan() {
         edges.add({ from: hubId, to: h.ip })
       }
     }
+    typeCounts.value = counts
     // Relie « cette machine » à la box quand la box est le centre.
     if (hubId !== 'local') {
       edges.add({ from: hubId, to: 'local' })
@@ -261,10 +272,18 @@ onBeforeUnmount(() => {
       </div>
     </div>
     <p v-if="err" class="err">{{ err }}</p>
-    <div class="legend">
-      <span v-for="l in legend" :key="l.label" class="leg-item">{{ l.icon }} {{ l.label }}</span>
+    <div v-if="legendItems.length" class="legend">
+      <span v-for="l in legendItems" :key="l.label" class="leg-item">
+        {{ l.icon }} {{ l.label }} <b>{{ l.count }}</b>
+      </span>
     </div>
-    <div ref="el" class="canvas"></div>
+    <div class="canvas-wrap">
+      <div ref="el" class="canvas"></div>
+      <p v-if="!busy && !err && count === 0" class="empty">
+        Aucun hôte détecté sur ce sous-réseau.<br />
+        <span class="muted">Vérifiez l'interface sélectionnée, ou réveillez les appareils puis rescannez.</span>
+      </p>
+    </div>
   </div>
 </template>
 
@@ -284,9 +303,24 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
 }
-.canvas {
+.canvas-wrap {
+  position: relative;
   flex: 1;
   min-height: 0;
+}
+.canvas {
+  height: 100%;
+  min-height: 0;
+}
+.empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: var(--text);
+  margin: 0;
+  pointer-events: none;
 }
 .legend {
   display: flex;
@@ -299,6 +333,7 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
 }
 .leg-item { white-space: nowrap; }
+.leg-item b { color: var(--text); font-variant-numeric: tabular-nums; }
 .bar-btns { display: flex; gap: 0.5rem; }
 .filter { max-width: 150px; }
 .iface { max-width: 190px; }

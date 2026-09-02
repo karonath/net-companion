@@ -114,9 +114,9 @@ func classifyService(svc string) string {
 		return "imprimante"
 	case has(s, "_scanner", "_uscan"):
 		return "scanner"
-	case has(s, "_smb", "_afpovertcp", "_nfs", "_adisk", "tcp/445", "tcp/139", "nas"):
-		return "ordinateur / NAS"
-	case has(s, "_ssh", "_sftp-ssh", "tcp/22"):
+	case has(s, "_afpovertcp", "_nfs", "_adisk", "nas"):
+		return "NAS / stockage"
+	case has(s, "_smb", "tcp/445", "tcp/139", "_ssh", "_sftp-ssh", "tcp/22"):
 		return "ordinateur"
 	case has(s, "_homekit", "_hap", "_hue", "_matter", "_miio"):
 		return "objet connecté"
@@ -134,22 +134,40 @@ func classifyService(svc string) string {
 func InferType(hints ...string) string {
 	s := strings.ToLower(strings.Join(hints, " "))
 	switch {
+	// --- Équipements d'infrastructure (entreprise) : préfixes de nom + marques ---
+	case has(s, "fw-", "-fw", "firewall", "fortinet", "fortigate", "palo alto", "sonicwall", "pfsense"):
+		return "pare-feu"
+	case has(s, "ap-", "-ap", "access-point", "accesspoint", "aruba", "unifi", "meraki mr", "aironet"):
+		return "point d'accès"
+	case has(s, "sw-", "-sw", "switch", "catalyst", "nexus", "procurve"):
+		return "switch"
+	case has(s, "esxi", "vmware", "proxmox", "hyper-v", "vsphere"):
+		return "hyperviseur"
+	case has(s, "srv-", "-srv", "server", "serveur"):
+		return "serveur"
+	case has(s, "voip", "phone-", "-phone", "polycom", "yealink", "sip"):
+		return "téléphone VoIP"
+	case has(s, "ups-", "-ups", "onduleur", "smart-ups", "apc ", "eaton"):
+		return "onduleur"
+	case has(s, "plc", "siemens", "simatic", "modbus", "scada", "rockwell", "allen-bradley"):
+		return "automate / OT"
+	// --- Grand public / mixte ---
 	case has(s, "nintendo", "playstation", "sony interactive", "xbox", "steam"):
 		return "console de jeu"
 	case has(s, "washer", "fridge", "refriger", "dishwash", "oven", "microwave", "cooktop", "laundry", "vacuum", "roborock"):
 		return "électroménager"
-	case has(s, "printer", "laserjet", "officejet", "deskjet", "ecotank", "brother", "canon", "lexmark", "kyocera"):
+	case has(s, "prt-", "-prt", "printer", "laserjet", "officejet", "deskjet", "ecotank", "brother", "canon", "lexmark", "kyocera", "jetdirect", "zebra"):
 		return "imprimante"
 	case has(s, "chromecast", "roku", "appletv", "apple tv", "bravia", "firetv", "shield", "smart-tv", "smarttv", " tv", "-tv", "webos", "tizen"):
 		return "TV / média"
 	case has(s, "iphone", "ipad", "android", "pixel", "galaxy", "oneplus", "xiaomi", "huawei", "phone"):
 		return "smartphone / tablette"
-	case has(s, "camera", "webcam", "ipcam", "hikvision", "dahua", "reolink", "nest cam", "ring"):
+	case has(s, "camera", "webcam", "ipcam", "hikvision", "dahua", "axis", "reolink", "nest cam", "ring"):
 		return "caméra"
-	case has(s, "livebox", "freebox", "bbox", "fritz", "router", "gateway", "sagemcom", "netgear", "tp-link", "asus", "ubiquiti", "unifi"):
+	case has(s, "livebox", "freebox", "bbox", "fritz", "rtr-", "-rtr", "router", "routeur", "gateway", "gw-", "sagemcom", "netgear", "tp-link", "mikrotik"):
 		return "routeur / box"
 	case has(s, "synology", "qnap", "nas", "truenas", "diskstation"):
-		return "ordinateur / NAS"
+		return "NAS / stockage"
 	case has(s, "raspberr", "esp32", "esp8266", "tasmota", "shelly", "sonoff", "tuya", "smartthings", "samjin"):
 		return "objet connecté"
 	case has(s, "macbook", "imac", "thinkpad", "desktop", "laptop", "-pc", "workstation"):

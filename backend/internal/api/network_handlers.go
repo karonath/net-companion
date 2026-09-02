@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"netcompanion/internal/models"
@@ -17,6 +18,7 @@ import (
 	"netcompanion/internal/network/oui"
 	"netcompanion/internal/network/portfinder"
 	"netcompanion/internal/network/radar"
+	"netcompanion/internal/network/sysinfo"
 	"netcompanion/internal/sim"
 	"netcompanion/internal/vault"
 )
@@ -231,6 +233,10 @@ func runRadar(ifi models.InterfaceInfo, v *vault.Vault) []models.Host {
 		h.Sources = mergeStrings(h.Sources, d.Sources)
 	}
 
+	// 5) Classification SNMP (entreprise) : type fiable via sysDescr/sysServices
+	//    sur les équipements qui répondent au SNMP. Silencieux sinon.
+	classifyViaSNMP(byIP, v)
+
 	// Reverse-DNS best-effort + inférence de type en dernier recours.
 	for _, h := range byIP {
 		if h.Hostname == "" {
@@ -338,6 +344,50 @@ func readARP() []arp.Neighbor {
 		return nil
 	}
 	return n
+}
+
+// classifyViaSNMP interroge chaque hôte en SNMP (sysDescr/sysServices) pour un
+// typage fiable en entreprise (switch/routeur/pare-feu/serveur…). Le type SNMP
+// fait autorité (écrase le type deviné). Ne fait rien si le coffre est verrouillé
+// ou sans community. Session courte, sans réessai, sondage borné en parallèle.
+func classifyViaSNMP(byIP map[string]*models.Host, v *vault.Vault) {
+	snap, err := v.Snapshot()
+	if err != nil || len(snap.SNMP) == 0 {
+		return
+	}
+	sem := make(chan struct{}, 48)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for ip, h := range byIP {
+		wg.Add(1)
+		go func(ip string, h *models.Host) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			for _, c := range snap.SNMP {
+				client, closeFn, err := portfinder.NewGoSNMPFast(ip, c, 700*time.Millisecond)
+				if err != nil {
+					continue
+				}
+				info, ok := sysinfo.FromSNMP(client)
+				_ = closeFn()
+				if !ok {
+					continue
+				}
+				mu.Lock()
+				if info.DeviceType != "" {
+					h.DeviceType = info.DeviceType // SNMP fait autorité
+				}
+				if h.Name == "" && info.SysName != "" {
+					h.Name = info.SysName
+				}
+				h.Sources = mergeStrings(h.Sources, []string{"snmp"})
+				mu.Unlock()
+				return
+			}
+		}(ip, h)
+	}
+	wg.Wait()
 }
 
 // gatewayARPViaSNMP lit la table ARP de la passerelle par SNMP (inventaire

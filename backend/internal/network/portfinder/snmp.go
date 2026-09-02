@@ -112,6 +112,21 @@ func NewGoSNMP(target string, cred models.SNMPCredential) (SNMPClient, func() er
 	return &goSNMP{conn: conn}, conn.Conn.Close, nil
 }
 
+// NewGoSNMPFast ouvre une session SNMP à délai court et sans réessai, adaptée au
+// sondage en masse (classification de nombreux hôtes) : les non-SNMP échouent vite.
+func NewGoSNMPFast(target string, cred models.SNMPCredential, timeout time.Duration) (SNMPClient, func() error, error) {
+	conn, err := buildGoSNMP(target, cred)
+	if err != nil {
+		return nil, nil, err
+	}
+	conn.Timeout = timeout
+	conn.Retries = 0
+	if err := conn.Connect(); err != nil {
+		return nil, nil, err
+	}
+	return &goSNMP{conn: conn}, conn.Conn.Close, nil
+}
+
 func (g *goSNMP) Get(oid string) (string, bool) {
 	res, err := g.conn.Get([]string{"." + oid})
 	if err != nil || len(res.Variables) == 0 {
