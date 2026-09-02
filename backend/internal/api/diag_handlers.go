@@ -16,8 +16,9 @@ func registerDiag(mux *http.ServeMux) {
 			writeJSON(w, http.StatusOK, map[string]any{"checks": sim.DemoDiagSuite()})
 			return
 		}
+		ifi, _ := netinfo.LocalInterface()
 		gw, _ := netinfo.DefaultGateway()
-		writeJSON(w, http.StatusOK, map[string]any{"checks": diag.RunSuite(gw)})
+		writeJSON(w, http.StatusOK, map[string]any{"checks": diag.RunSuite(ifi, gw)})
 	})
 
 	mux.HandleFunc("POST /api/diag/host", func(w http.ResponseWriter, r *http.Request) {

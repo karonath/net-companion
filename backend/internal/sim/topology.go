@@ -88,13 +88,17 @@ func DemoHostDiag(ip string) []diag.Check {
 	}
 }
 
-// DemoDiagSuite renvoie un bilan de connectivité simulé (tout au vert).
+// DemoDiagSuite renvoie un bilan de connectivité complet simulé (tout au vert).
 func DemoDiagSuite() []diag.Check {
 	return []diag.Check{
+		{Name: "Interface locale", Status: diag.StatusOK, Detail: "10.10.0.100 sur eth0 (démo) (10.10.0.100/24)"},
 		{Name: "Passerelle joignable", Status: diag.StatusOK, Detail: DemoGateway + " joignable (port 443) [démo]"},
+		{Name: "Latence passerelle", Status: diag.StatusOK, Detail: DemoGateway + ":443 : 1 ms (jitter 0 ms, perte 0%) [démo]"},
 		{Name: "Résolution DNS", Status: diag.StatusOK, Detail: "example.com → 93.184.216.34 (12 ms) [démo]"},
 		{Name: "Accès Internet", Status: diag.StatusOK, Detail: "connecté à 1.1.1.1:443 [démo]"},
-		{Name: "Latence", Status: diag.StatusOK, Detail: "1.1.1.1:443 : 9 ms (jitter 2 ms, perte 0%) [démo]"},
+		{Name: "Latence Internet", Status: diag.StatusOK, Detail: "1.1.1.1:443 : 9 ms (jitter 2 ms, perte 0%) [démo]"},
+		{Name: "Portail captif", Status: diag.StatusOK, Detail: "aucun (accès Internet direct) [démo]"},
+		{Name: "IP publique (WAN)", Status: diag.StatusOK, Detail: "203.0.113.42 [démo]"},
 	}
 }
 

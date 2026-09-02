@@ -49,7 +49,7 @@ func registerCheckup(mux *http.ServeMux, v *vault.Vault) {
 			var wg sync.WaitGroup
 			wg.Add(2)
 			go func() { defer wg.Done(); hosts = runRadar(ifi, v) }()
-			go func() { defer wg.Done(); checks = diag.RunSuite(gw) }()
+			go func() { defer wg.Done(); checks = diag.RunSuite(ifi, gw) }()
 			wg.Wait()
 		}
 
