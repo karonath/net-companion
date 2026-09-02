@@ -54,6 +54,8 @@ async function locatePort() {
       <span v-if="state.selectedHost.isGateway" class="tag muted">passerelle</span>
     </div>
     <dl>
+      <div v-if="state.selectedHost.name"><dt>Nom (mDNS)</dt><dd>{{ state.selectedHost.name }}</dd></div>
+      <div v-if="state.selectedHost.model"><dt>Modèle</dt><dd>{{ state.selectedHost.model }}</dd></div>
       <div v-if="state.selectedHost.vendor"><dt>Fabricant</dt><dd>{{ state.selectedHost.vendor }}</dd></div>
       <div v-if="state.selectedHost.mac"><dt>MAC</dt><dd>{{ state.selectedHost.mac }}</dd></div>
       <div v-if="info && info.hostname"><dt>Nom d'hôte</dt><dd>{{ info.hostname }}</dd></div>

@@ -13,8 +13,10 @@ type Host struct {
 	IP     string `json:"ip"`
 	MAC    string `json:"mac,omitempty"`
 	Vendor string `json:"vendor,omitempty"`
+	Name   string `json:"name,omitempty"`  // nom d'hôte (mDNS/reverse-DNS)
+	Model  string `json:"model,omitempty"` // modèle (SSDP/UPnP)
 	Alive  bool   `json:"alive"`
-	Source string `json:"source"` // "arp", "icmp", "tcp", "sweep"
+	Source string `json:"source"` // "arp", "sweep", "mdns", "ssdp"
 }
 
 // RadarResult agrège les hôtes vus + le contexte local.
