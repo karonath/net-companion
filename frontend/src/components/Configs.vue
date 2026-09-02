@@ -92,7 +92,8 @@ onMounted(loadDevices)
     </HelpNote>
 
     <button v-if="state.sim.enabled" class="demo" @click="useDemo">Utiliser l'équipement de démo</button>
-    <textarea v-model="devicesText" rows="3" placeholder="IP par ligne (ex: 192.168.1.1)"></textarea>
+    <textarea v-model="devicesText" rows="3" placeholder="IP par ligne (ex: 192.168.1.1)"
+      aria-label="Liste des IP d'équipements à sauvegarder (une par ligne)"></textarea>
     <button class="primary" @click="backup" :disabled="busy">
       {{ busy ? 'Sauvegarde…' : 'Sauvegarder' }}
     </button>

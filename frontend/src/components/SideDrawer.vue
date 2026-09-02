@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import VaultManager from './VaultManager.vue'
 import ConfigDiff from './ConfigDiff.vue'
 import NacPanel from './NacPanel.vue'
@@ -10,12 +10,18 @@ import Configs from './Configs.vue'
 import { state } from '../state'
 
 const tab = ref('check')
+const drawerEl = ref(null)
 
 // Un module peut demander l'ouverture d'un onglet (depuis le détail d'hôte).
+// On observe le compteur seq pour réagir même si l'onglet ciblé est identique,
+// et on amène le panneau à l'écran (utile en affichage mono-colonne / mobile).
 watch(
-  () => state.prefill.tab,
-  (t) => {
-    if (t) tab.value = t
+  () => state.prefill.seq,
+  () => {
+    if (state.prefill.tab) tab.value = state.prefill.tab
+    nextTick(() => {
+      if (drawerEl.value) drawerEl.value.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }
 )
 const tabs = [
@@ -30,7 +36,7 @@ const tabs = [
 </script>
 
 <template>
-  <aside class="drawer panel">
+  <aside ref="drawerEl" class="drawer panel">
     <nav class="tabs">
       <button
         v-for="t in tabs"

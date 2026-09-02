@@ -112,7 +112,7 @@ onMounted(load)
     <p v-if="err" class="err">{{ err }}</p>
 
     <div class="testip">
-      <input v-model="testIp" placeholder="IP de test (pour « Tester »)" />
+      <input v-model="testIp" placeholder="IP de test (pour « Tester »)" aria-label="IP de test pour valider un identifiant" />
     </div>
 
     <section>
@@ -141,11 +141,11 @@ onMounted(load)
         </select>
 
         <template v-if="newSnmp.version === 'v2c'">
-          <input v-model="newSnmp.community" placeholder="Community (ex: public)" />
+          <input v-model="newSnmp.community" placeholder="Community (ex: public)" aria-label="Community SNMP v2c" />
         </template>
 
         <template v-else>
-          <input v-model="newSnmp.securityName" placeholder="Nom d'utilisateur (securityName)" />
+          <input v-model="newSnmp.securityName" placeholder="Nom d'utilisateur (securityName)" aria-label="Nom d'utilisateur SNMP v3" />
           <select v-model="newSnmp.securityLevel">
             <option value="noAuthNoPriv">noAuthNoPriv</option>
             <option value="authNoPriv">authNoPriv</option>
@@ -188,9 +188,9 @@ onMounted(load)
         <li v-if="!ssh.length" class="muted empty">Aucun identifiant.</li>
       </ul>
       <div class="form">
-        <input v-model="newSsh.label" placeholder="Libellé (ex: core)" />
-        <input v-model="newSsh.username" placeholder="Utilisateur" />
-        <input v-model="newSsh.password" type="password" placeholder="Mot de passe" />
+        <input v-model="newSsh.label" placeholder="Libellé (ex: core)" aria-label="Libellé de l'identifiant SSH" />
+        <input v-model="newSsh.username" placeholder="Utilisateur" aria-label="Utilisateur SSH" />
+        <input v-model="newSsh.password" type="password" placeholder="Mot de passe" aria-label="Mot de passe SSH" />
         <button class="primary" @click="addSsh">Ajouter</button>
       </div>
     </section>

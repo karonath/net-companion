@@ -1,17 +1,20 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../api'
+import { friendlyError } from '../errors'
 import { state } from '../state'
 
 defineEmits(['lock'])
 
 const demoBusy = ref(false)
+const demoErr = ref('')
 async function enableDemo() {
   demoBusy.value = true
+  demoErr.value = ''
   try {
     state.sim = await api.simEnable()
-  } catch {
-    /* ignoré */
+  } catch (e) {
+    demoErr.value = friendlyError(e, 'Activation de la démo impossible.')
   } finally {
     demoBusy.value = false
   }
@@ -80,6 +83,7 @@ onMounted(load)
         title="Démarrer un équipement simulé pour tester sans matériel">
         {{ demoBusy ? '…' : 'Mode démo' }}
       </button>
+      <span v-if="demoErr" class="tag errtag"><span class="dot red"></span> {{ demoErr }}</span>
 
       <span class="tag"><span class="dot green"></span> Coffre déverrouillé</span>
       <button class="danger" @click="$emit('lock')">Verrouiller</button>
@@ -111,4 +115,5 @@ onMounted(load)
   flex-wrap: wrap;
 }
 .tag.demo { border-color: var(--orange); color: var(--orange); }
+.tag.errtag { border-color: var(--red); color: var(--red); }
 </style>

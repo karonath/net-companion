@@ -9,13 +9,14 @@ const checks = ref([])
 const busy = ref(false)
 const err = ref('')
 
-// Pré-remplissage depuis le détail d'hôte (test de port + traceroute).
+// Pré-remplissage depuis le détail d'hôte (via seq : re-déclenche même si l'hôte
+// ciblé est le même qu'au clic précédent).
 watch(
-  () => state.prefill.diagHost,
-  (h) => {
-    if (h) {
-      ph.value = h
-      tt.value = h
+  () => state.prefill.seq,
+  () => {
+    if (state.prefill.tab === 'diag' && state.prefill.diagHost) {
+      ph.value = state.prefill.diagHost
+      tt.value = state.prefill.diagHost
     }
   }
 )
@@ -119,8 +120,8 @@ function dotClass(status) {
     <section>
       <h3>Test de port</h3>
       <div class="form">
-        <input v-model="ph" placeholder="Hôte (ex: 192.168.1.1)" />
-        <input v-model="pp" placeholder="Port" inputmode="numeric" style="max-width: 90px" />
+        <input v-model="ph" placeholder="Hôte (ex: 192.168.1.1)" aria-label="Hôte à tester" />
+        <input v-model="pp" placeholder="Port" inputmode="numeric" style="max-width: 90px" aria-label="Port TCP à tester" />
         <button @click="checkPort" :disabled="portBusy">{{ portBusy ? '…' : 'Tester' }}</button>
       </div>
       <div v-if="portResult" class="line">
@@ -132,7 +133,7 @@ function dotClass(status) {
     <section>
       <h3>Traceroute</h3>
       <div class="form">
-        <input v-model="tt" placeholder="Cible (ex: 1.1.1.1)" @keyup.enter="traceroute" />
+        <input v-model="tt" placeholder="Cible (ex: 1.1.1.1)" @keyup.enter="traceroute" aria-label="Cible du traceroute" />
         <button @click="traceroute" :disabled="trBusy">{{ trBusy ? '…' : 'Tracer' }}</button>
       </div>
       <p v-if="trErr" class="err">{{ trErr }}</p>

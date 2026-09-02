@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { Network, DataSet } from 'vis-network/standalone'
 import { api } from '../api'
+import { friendlyError } from '../errors'
 import { selectHost, state } from '../state'
 
 const el = ref(null)
@@ -194,14 +195,17 @@ async function scan() {
     }
     network.fit()
   } catch (e) {
-    err.value = e.message
+    err.value = friendlyError(e, 'Scan du réseau impossible.')
   } finally {
     busy.value = false
   }
 }
 
 async function addNeighbors() {
-  if (!curNodes || !curEdges) return
+  if (!curNodes || !curEdges) {
+    err.value = "Lancez d'abord un scan (« Rescanner ») avant d'ajouter les voisins."
+    return
+  }
   nbBusy.value = true
   err.value = ''
   try {
@@ -230,7 +234,7 @@ async function addNeighbors() {
     }
     if (network) network.fit()
   } catch (e) {
-    err.value = e.status === 423 ? 'Coffre verrouillé (voisins SNMP).' : 'Voisins indisponibles : ' + e.message
+    err.value = e.status === 423 ? 'Coffre verrouillé (voisins SNMP).' : friendlyError(e, 'Voisins indisponibles.')
   } finally {
     nbBusy.value = false
   }
@@ -257,11 +261,13 @@ onBeforeUnmount(() => {
         <span class="muted"> · {{ count }} hôte(s)</span>
       </div>
       <select v-model="state.selectedIface" class="iface" @change="onIfaceChange"
+        aria-label="Interface réseau à scanner"
         title="Mode Universel : forcer l'interface à scanner (défaut : auto)">
         <option value="">Auto{{ autoName ? ' (' + autoName + ')' : '' }}</option>
         <option v-for="i in ifaces" :key="i.name" :value="i.name">{{ i.name }} · {{ i.ipv4 }}</option>
       </select>
-      <input v-model="filter" class="filter" placeholder="Filtrer (IP/vendor)" />
+      <input v-model="filter" class="filter" placeholder="Filtrer (IP/vendor)"
+        aria-label="Filtrer les hôtes par IP ou fabricant" />
       <div class="bar-btns">
         <button @click="addNeighbors" :disabled="nbBusy" title="Découvrir les voisins LLDP/CDP par SNMP">
           {{ nbBusy ? '…' : 'Voisins LLDP' }}

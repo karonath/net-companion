@@ -5,8 +5,8 @@ const open = ref(false)
 
 <template>
   <div class="help">
-    <button class="toggle" @click="open = !open">
-      <span class="i">ⓘ</span> {{ open ? 'Masquer l\'aide' : 'À quoi ça sert ?' }}
+    <button class="toggle" :aria-expanded="open" @click="open = !open">
+      <span class="i" aria-hidden="true">ⓘ</span> {{ open ? 'Masquer l\'aide' : 'À quoi ça sert ?' }}
     </button>
     <p v-if="open" class="body"><slot /></p>
   </div>

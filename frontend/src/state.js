@@ -6,7 +6,9 @@ export const state = reactive({
   sim: { enabled: false, ssh: '', demoMac: '', user: '' },
   selectedHost: null, // { ip, mac, vendor, isGateway }
   selectedIface: '', // '' = auto (Mode Universel : nom d'interface pour forcer)
-  prefill: { configDiffIp: '', diagHost: '', tab: '' },
+  // seq est incrémenté à chaque navigation pour re-déclencher les watchers même
+  // quand l'IP ciblée est identique (sinon un même clic ne se propage pas).
+  prefill: { configDiffIp: '', diagHost: '', tab: '', seq: 0 },
 })
 
 export function selectHost(h) {
@@ -20,11 +22,13 @@ export function clearHost() {
 export function gotoConfigDiff(ip) {
   state.prefill.configDiffIp = ip
   state.prefill.tab = 'diff'
+  state.prefill.seq++
 }
 
 export function gotoDiag(host) {
   state.prefill.diagHost = host
   state.prefill.tab = 'diag'
+  state.prefill.seq++
 }
 
 // copyText copie du texte dans le presse-papiers (best-effort).

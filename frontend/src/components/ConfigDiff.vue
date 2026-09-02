@@ -2,15 +2,19 @@
 import { ref, watch } from 'vue'
 import { api } from '../api'
 import { state, copyText } from '../state'
+import { friendlyError } from '../errors'
 import HelpNote from './HelpNote.vue'
 
 const deviceIp = ref('')
 
-// Pré-remplissage depuis le détail d'hôte.
+// Pré-remplissage depuis le détail d'hôte (via seq : re-déclenche même si l'IP
+// ciblée est la même qu'au clic précédent).
 watch(
-  () => state.prefill.configDiffIp,
-  (ip) => {
-    if (ip) deviceIp.value = ip
+  () => state.prefill.seq,
+  () => {
+    if (state.prefill.tab === 'diff' && state.prefill.configDiffIp) {
+      deviceIp.value = state.prefill.configDiffIp
+    }
   }
 )
 
@@ -30,7 +34,10 @@ const busy = ref(false)
 const done = ref(false)
 
 async function run() {
-  if (!deviceIp.value) return
+  if (!deviceIp.value) {
+    err.value = "Renseignez l'IP de l'équipement à comparer."
+    return
+  }
   busy.value = true
   err.value = ''
   done.value = false
@@ -40,9 +47,8 @@ async function run() {
     lines.value = res.lines || []
     done.value = true
   } catch (e) {
-    if (e.status === 423) err.value = 'Coffre verrouillé.'
-    else if (e.status === 400) err.value = 'Ajoutez un identifiant SSH dans le coffre.'
-    else err.value = 'Échec SSH : ' + e.message
+    if (e.status === 400) err.value = 'Ajoutez un identifiant SSH dans le coffre.'
+    else err.value = friendlyError(e, 'Échec de la connexion SSH.')
   } finally {
     busy.value = false
   }
@@ -63,7 +69,7 @@ async function run() {
     </button>
     <div class="form">
       <input v-model="deviceIp" placeholder="IP de l'équipement (ex: 192.168.1.1)"
-             @keyup.enter="run" />
+             @keyup.enter="run" aria-label="IP de l'équipement à comparer" />
       <button class="primary" @click="run" :disabled="busy">
         {{ busy ? 'SSH…' : 'Comparer' }}
       </button>

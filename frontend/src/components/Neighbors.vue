@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { api } from '../api'
 import { state } from '../state'
+import { friendlyError } from '../errors'
 import HelpNote from './HelpNote.vue'
 
 const deviceIp = ref('')
@@ -11,6 +12,10 @@ const err = ref('')
 const busy = ref(false)
 
 async function discover(demo = false) {
+  if (!demo && !deviceIp.value) {
+    err.value = "Renseignez l'IP de l'équipement à interroger."
+    return
+  }
   busy.value = true
   err.value = ''
   done.value = false
@@ -20,9 +25,8 @@ async function discover(demo = false) {
     list.value = res.neighbors || []
     done.value = true
   } catch (e) {
-    if (e.status === 423) err.value = 'Coffre verrouillé.'
-    else if (e.status === 400) err.value = 'Ajoutez une community/utilisateur SNMP.'
-    else err.value = 'Découverte impossible : ' + e.message
+    if (e.status === 400) err.value = 'Ajoutez une community/utilisateur SNMP.'
+    else err.value = friendlyError(e, 'Découverte des voisins impossible.')
   } finally {
     busy.value = false
   }
@@ -44,7 +48,8 @@ async function discover(demo = false) {
       Démo (switch simulé)
     </button>
     <div class="form">
-      <input v-model="deviceIp" placeholder="IP de l'équipement (ex: 192.168.1.1)" @keyup.enter="discover(false)" />
+      <input v-model="deviceIp" placeholder="IP de l'équipement (ex: 192.168.1.1)" @keyup.enter="discover(false)"
+        aria-label="IP de l'équipement à interroger" />
       <button class="primary" @click="discover(false)" :disabled="busy">
         {{ busy ? '…' : 'Découvrir' }}
       </button>
