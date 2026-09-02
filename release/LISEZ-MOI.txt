@@ -1,19 +1,40 @@
 Net-Companion Lite — binaire portable
 =====================================
 
-Ce dossier contient l'exécutable prêt à copier sur une clé USB.
+Diagnostic reseau de terrain, sans installation ni droits administrateur.
+Tout tourne en local sur la machine ; aucune donnee ne quitte le poste.
 
 UTILISATION
 -----------
-1. Copiez net-companion.exe sur votre clé USB.
-2. Sur le poste, double-cliquez net-companion.exe.
-   (Windows SmartScreen peut prévenir au 1er lancement, le binaire n'étant pas
-    signé : « Informations complémentaires » -> « Exécuter quand même ».)
+1. Copiez le .exe sur votre cle USB (ou lancez-le directement).
+2. Double-cliquez le .exe.
+   (Windows SmartScreen peut prevenir au 1er lancement, le binaire n'etant pas
+    signe : « Informations complementaires » -> « Executer quand meme ».
+    Un antivirus peut aussi alerter : un outil qui scanne le reseau, c'est normal.)
 3. Le navigateur s'ouvre sur http://127.0.0.1:8080
-4. Créez un code PIN, puis cliquez « Mode démo » pour tout essayer sans matériel.
+4. Creez un code PIN, puis cliquez « Mode demo » pour tout essayer sans materiel.
+   (Le PIN chiffre vos identifiants SNMP/SSH en local, en AES-256.)
 
-Aucune installation, aucune dépendance. Tout tourne en local sur la machine.
+Pour arreter : fermez la fenetre console.
 
-Pour arrêter : fermez la fenêtre console (ou Ctrl+C).
+CE QUE FAIT L'OUTIL
+-------------------
+- Radar & inventaire : decouverte + identification typee des appareils
+  (pare-feu, switch, serveur, imprimante, NAS, VoIP, camera, PC...),
+  vue arborescente + carte topologique, export PNG/CSV.
+- Diagnostic de connectivite complet (13 points) : interface/MTU, serveurs DNS,
+  passerelle + latence, DNS, acces + latence Internet, perte de paquets, ports
+  sortants, IPv6, portail captif, IP publique, debit ; + diagnostic par appareil.
+- Score de sante /100 + detection d'anomalies.
+- Check de site (1 clic) + rapport professionnel exportable (HTML / JSON).
+- Avec identifiants SNMP/SSH (coffre) : Port-Finder (switch/port/VLAN),
+  voisinage LLDP/CDP, Config-Diff & derive.
+
+LICENCE
+-------
+Logiciel PROPRIETAIRE. Copyright (c) 2026 Charlys Menuet (Karonath).
+Tous droits reserves. Mise a disposition a des fins d'EVALUATION uniquement.
+Copie, redistribution, reutilisation du code/des idees et retro-ingenierie
+interdites sans autorisation ecrite. Voir le fichier LICENSE.
 
 Auteur : Charlys Menuet (Karonath).
