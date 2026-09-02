@@ -1,9 +1,11 @@
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { Network, DataSet } from 'vis-network/standalone'
 import { api } from '../api'
 import { friendlyError } from '../errors'
 import { selectHost, state } from '../state'
+import { typeIcon, styleFor, categoryOf } from '../devicetypes'
+import TopologyTree from './TopologyTree.vue'
 
 const el = ref(null)
 const busy = ref(false)
@@ -15,8 +17,11 @@ const ifaces = ref([])
 const autoName = ref('')
 const filter = ref('')
 const activeType = ref('') // filtre de catégorie via la légende ('' = toutes)
-const layoutMode = ref('star') // 'star' | 'tree'
+const layoutMode = ref('star') // 'star' | 'tree' (graphe)
+const viewMode = ref('graph') // 'graph' | 'tree' (graphe vs arborescence)
 const autoRefresh = ref(false)
+const hostsRef = ref([]) // hôtes courants (pour l'arborescence)
+const gwRef = ref('') // IP passerelle (pour l'arborescence)
 
 let network = null
 let hostMap = {}
@@ -37,45 +42,24 @@ async function loadInterfaces() {
   }
 }
 
-// ---- Taxonomie : icône + forme + couleur par type -------------------------
-const TYPE_ICONS = {
-  'routeur / box': '🌐', switch: '🔀', 'pare-feu': '🛡️', "point d'accès": '📡',
-  serveur: '🖥️', hyperviseur: '⚙️', 'NAS / stockage': '🗄️', ordinateur: '💻',
-  'smartphone / tablette': '📱', imprimante: '🖨️', scanner: '🖨️', 'TV / média': '📺',
-  'téléphone VoIP': '☎️', 'console de jeu': '🎮', 'électroménager': '🧺', 'caméra': '📷',
-  onduleur: '🔋', 'automate / OT': '🏭', 'objet connecté': '💡', Autre: '🔌',
+// Icône matériel rendue en image (emoji dessiné sur un canvas) pour les nœuds.
+const emojiCache = {}
+function emojiImg(emoji) {
+  if (emojiCache[emoji]) return emojiCache[emoji]
+  const size = 64
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = size
+  const ctx = canvas.getContext('2d')
+  ctx.font = '46px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(emoji, size / 2, size / 2 + 2)
+  const url = canvas.toDataURL()
+  emojiCache[emoji] = url
+  return url
 }
-function typeIcon(t) {
-  return TYPE_ICONS[t] || '🔌'
-}
-// Forme + couleur : infra en carré/losange/triangle, terminaux en point.
-const TYPE_STYLE = {
-  'routeur / box': { shape: 'star', color: '#f0883e' },
-  'pare-feu': { shape: 'diamond', color: '#f85149' },
-  switch: { shape: 'square', color: '#4c8dff' },
-  "point d'accès": { shape: 'triangle', color: '#2bb6a3' },
-  serveur: { shape: 'square', color: '#a970ff' },
-  hyperviseur: { shape: 'square', color: '#7c5cff' },
-  'NAS / stockage': { shape: 'square', color: '#c084fc' },
-  imprimante: { shape: 'square', color: '#d29922' },
-  scanner: { shape: 'square', color: '#d29922' },
-  'téléphone VoIP': { shape: 'triangle', color: '#58a6ff' },
-  'caméra': { shape: 'triangle', color: '#f0883e' },
-  onduleur: { shape: 'square', color: '#bf8700' },
-  'automate / OT': { shape: 'diamond', color: '#f85149' },
-  ordinateur: { shape: 'dot', color: '#3fb950' },
-  'smartphone / tablette': { shape: 'dot', color: '#56d4dd' },
-  'TV / média': { shape: 'dot', color: '#db61a2' },
-  'console de jeu': { shape: 'dot', color: '#db61a2' },
-  'électroménager': { shape: 'dot', color: '#8b949e' },
-  'objet connecté': { shape: 'dot', color: '#3fb950' },
-  Autre: { shape: 'dot', color: '#8b949e' },
-}
-function styleFor(cat) {
-  return TYPE_STYLE[cat] || TYPE_STYLE.Autre
-}
-function categoryOf(h) {
-  return h.ip === gwHint ? 'routeur / box' : h.deviceType || 'Autre'
+function catOf(h) {
+  return categoryOf(h, gwHint)
 }
 
 // Légende dynamique (catégories présentes + compteur), cliquable pour filtrer.
@@ -92,7 +76,10 @@ function cssVar(n) {
 
 function styleOptions() {
   return {
-    nodes: { size: 14, font: { color: cssVar('--text'), face: 'system-ui', size: 13 }, borderWidth: 2 },
+    nodes: {
+      size: 14, font: { color: cssVar('--text'), face: 'system-ui', size: 13 },
+      borderWidth: 2, shapeProperties: { useBorderWithImage: true },
+    },
     edges: { color: { color: cssVar('--border'), highlight: cssVar('--accent') }, width: 1, smooth: { type: 'continuous' } },
     layout: { improvedLayout: false },
     physics: { stabilization: { enabled: true, iterations: 200, fit: true }, barnesHut: { springLength: 120 } },
@@ -109,24 +96,25 @@ function buildGraphData(res) {
   const hubId = ipset.has(gwHint) ? gwHint : 'local'
 
   const nodes = [{
-    id: 'local', label: `Cette machine\n${local?.ipv4 || ''}`, shape: 'hexagon',
-    color: { background: cssVar('--accent'), border: cssVar('--accent') },
-    size: hubId === 'local' ? 20 : 14, font: { color: cssVar('--text') },
+    id: 'local', label: `Cette machine\n${local?.ipv4 || ''}`, shape: 'image', image: emojiImg('📍'),
+    color: { background: cssVar('--accent'), border: cssVar('--accent') }, borderWidth: 3,
+    size: hubId === 'local' ? 22 : 16, font: { color: cssVar('--text') },
   }]
   const edges = []
   const counts = {}
   for (const h of hosts) {
     const isGw = h.ip === gwHint
-    const cat = categoryOf(h)
+    const cat = catOf(h)
     counts[cat] = (counts[cat] || 0) + 1
-    const st = isGw ? { shape: 'star', color: cssVar('--orange') } : styleFor(cat)
+    // Icône matériel (grande) + anneau coloré fin par type.
+    const color = isGw ? cssVar('--orange') : styleFor(cat).color
     const title = h.name || h.hostname || ''
     const detail = h.model || h.manufacturer || h.vendor || h.mac || ''
-    const label = [typeIcon(cat) + (title ? ' ' + title : ''), h.ip, detail].filter(Boolean).join('\n')
+    const label = [title || h.ip, title ? h.ip : '', detail].filter(Boolean).join('\n')
     nodes.push({
-      id: h.ip, label, shape: st.shape,
-      color: { background: st.color, border: st.color },
-      size: isGw ? 22 : 12, font: { color: cssVar('--text') },
+      id: h.ip, label, shape: 'image', image: emojiImg(typeIcon(cat)),
+      color: { background: color, border: color },
+      borderWidth: isGw ? 4 : 3, size: isGw ? 26 : 18, font: { color: cssVar('--text') },
     })
   }
   // Arêtes : étoile (tout sur le hub) ou hiérarchie (via uplink).
@@ -157,6 +145,8 @@ function applyTopology(res, { highlightNew = false, fit = true } = {}) {
   const { nodes, edges, counts } = buildGraphData(res)
   typeCounts.value = counts
   count.value = (res.hosts || []).length
+  hostsRef.value = res.hosts || [] // pour l'arborescence
+  gwRef.value = gwHint
 
   if (!network) {
     curNodes = new DataSet(nodes)
@@ -197,8 +187,8 @@ function flashNew(ids) {
     curNodes.update(ids.map((id) => {
       const h = hostMap[id]
       if (!h) return { id }
-      const st = id === gwHint ? { color: cssVar('--orange') } : styleFor(categoryOf(h))
-      return { id, borderWidth: 2, color: { background: st.color, border: st.color }, shadow: { enabled: false } }
+      const color = id === gwHint ? cssVar('--orange') : styleFor(catOf(h)).color
+      return { id, borderWidth: id === gwHint ? 4 : 3, color: { background: color, border: color }, shadow: { enabled: false } }
     }))
   }, 4000)
 }
@@ -211,7 +201,7 @@ function applyFilter() {
     const hay = [h.ip, h.name, h.hostname, h.model, h.vendor, h.manufacturer, h.mac, h.deviceType]
       .filter(Boolean).join(' ').toLowerCase()
     const textOk = term === '' || hay.includes(term)
-    const typeOk = activeType.value === '' || categoryOf(h) === activeType.value
+    const typeOk = activeType.value === '' || catOf(h) === activeType.value
     return { id: h.ip, hidden: !(textOk && typeOk) }
   })
   if (updates.length) curNodes.update(updates)
@@ -275,6 +265,15 @@ async function refreshSilent() {
 watch(autoRefresh, (on) => {
   clearInterval(refreshTimer)
   if (on) refreshTimer = setInterval(refreshSilent, 15000)
+})
+
+// Sélection depuis l'arborescence : ouvre la même fiche que le graphe.
+function onTreeSelect(h) {
+  selectHost({ ...h, isGateway: h.ip === gwHint })
+}
+// Revenir au graphe (masqué en display:none) : forcer un redraw + recadrage.
+watch(viewMode, (m) => {
+  if (m === 'graph' && network) nextTick(() => { network.redraw(); network.fit() })
 })
 
 // Bascule du mode démo : reconstruire la topologie depuis le backend.
@@ -377,7 +376,11 @@ onBeforeUnmount(() => {
         </select>
         <input v-model="filter" class="filter" placeholder="Filtrer (nom/IP/type…)"
           aria-label="Filtrer les hôtes" />
-        <div class="seg" role="group" aria-label="Disposition">
+        <div class="seg" role="group" aria-label="Vue">
+          <button :class="{ on: viewMode === 'graph' }" @click="viewMode = 'graph'" title="Vue graphe">Graphe</button>
+          <button :class="{ on: viewMode === 'tree' }" @click="viewMode = 'tree'" title="Vue arborescente (dense/entreprise)">Arbre</button>
+        </div>
+        <div v-show="viewMode === 'graph'" class="seg" role="group" aria-label="Disposition">
           <button :class="{ on: layoutMode === 'star' }" @click="setLayout('star')" title="Vue en étoile">Étoile</button>
           <button :class="{ on: layoutMode === 'tree' }" @click="setLayout('tree')" title="Hiérarchie L2 (uplinks)">Hiérarchie</button>
         </div>
@@ -401,12 +404,18 @@ onBeforeUnmount(() => {
       </button>
       <button v-if="activeType" class="leg-clear" @click="activeType = ''">✕ tout afficher</button>
     </div>
-    <div class="canvas-wrap">
-      <div ref="el" class="canvas"></div>
-      <p v-if="!busy && !err && count === 0" class="empty">
-        Aucun hôte détecté sur ce sous-réseau.<br />
-        <span class="muted">Vérifiez l'interface, ou réveillez les appareils puis rescannez.</span>
-      </p>
+    <div class="viewarea">
+      <div v-show="viewMode === 'graph'" class="canvas-wrap">
+        <div ref="el" class="canvas"></div>
+        <p v-if="!busy && !err && count === 0" class="empty">
+          Aucun hôte détecté sur ce sous-réseau.<br />
+          <span class="muted">Vérifiez l'interface, ou réveillez les appareils puis rescannez.</span>
+        </p>
+      </div>
+      <div v-show="viewMode === 'tree'" class="treewrap">
+        <TopologyTree :hosts="hostsRef" :gateway="gwRef" :filter="filter"
+          :active-type="activeType" @select="onTreeSelect" />
+      </div>
     </div>
   </div>
 </template>
@@ -427,7 +436,8 @@ onBeforeUnmount(() => {
 .seg button.on { background: var(--accent); color: #04101f; }
 .auto { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.82rem; color: var(--muted); }
 .ghost { font-size: 0.82rem; padding: 0.35rem 0.55rem; }
-.canvas-wrap { position: relative; flex: 1; min-height: 0; }
+.viewarea { position: relative; flex: 1; min-height: 0; }
+.canvas-wrap, .treewrap { position: absolute; inset: 0; }
 .canvas { height: 100%; min-height: 0; }
 .empty {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
