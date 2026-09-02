@@ -17,10 +17,20 @@ const ifaces = ref([])
 const autoName = ref('')
 const filter = ref('')
 const activeType = ref('') // filtre de catégorie via la légende ('' = toutes)
-const layoutMode = ref('star') // 'star' | 'tree' (graphe)
+const layoutMode = ref('tree') // 'star' | 'tree' (graphe) — hiérarchie lisible par défaut
 const autoRefresh = ref(false)
 const hostsRef = ref([]) // hôtes courants (pour l'arborescence)
 const gwRef = ref('') // IP passerelle (pour l'arborescence)
+const groupMode = ref('uplink') // 'uplink' | 'type' (arborescence)
+const menuEl = ref(null)
+const splitEl = ref(null)
+const treeW = ref(300)
+try {
+  const v = Number(localStorage.getItem('nc.treeW'))
+  if (v >= 200 && v <= 560) treeW.value = v
+} catch {
+  /* localStorage indisponible */
+}
 
 let network = null
 let hostMap = {}
@@ -74,16 +84,25 @@ function cssVar(n) {
 }
 
 function styleOptions() {
-  return {
+  const base = {
     nodes: {
-      size: 14, font: { color: cssVar('--text'), face: 'system-ui', size: 13 },
+      size: 16, font: { color: cssVar('--text'), face: 'system-ui', size: 13 },
       borderWidth: 2, shapeProperties: { useBorderWithImage: true },
     },
-    edges: { color: { color: cssVar('--border'), highlight: cssVar('--accent') }, width: 1, smooth: { type: 'continuous' } },
-    layout: { improvedLayout: false },
-    physics: { stabilization: { enabled: true, iterations: 200, fit: true }, barnesHut: { springLength: 120 } },
-    interaction: { hover: true, tooltipDelay: 120 },
+    edges: { color: { color: cssVar('--border'), highlight: cssVar('--accent') }, width: 1 },
+    interaction: { hover: true, tooltipDelay: 150 },
   }
+  if (layoutMode.value === 'tree') {
+    // Disposition hiérarchique déterministe : calme (aucune physique).
+    base.layout = { hierarchical: { enabled: true, direction: 'UD', sortMethod: 'directed', levelSeparation: 110, nodeSpacing: 140, treeSpacing: 160 } }
+    base.physics = false
+    base.edges.smooth = { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.5 }
+  } else {
+    base.layout = { improvedLayout: false }
+    base.physics = { stabilization: { enabled: true, iterations: 200, fit: true }, barnesHut: { springLength: 120 } }
+    base.edges.smooth = { type: 'continuous' }
+  }
+  return base
 }
 
 // ---- Construction du graphe -------------------------------------------------
@@ -95,7 +114,8 @@ function buildGraphData(res) {
   const hubId = ipset.has(gwHint) ? gwHint : 'local'
 
   const nodes = [{
-    id: 'local', label: `Cette machine\n${local?.ipv4 || ''}`, shape: 'image', image: emojiImg('📍'),
+    id: 'local', label: 'Cette machine', title: `Cette machine<br>${local?.ipv4 || ''}`,
+    shape: 'image', image: emojiImg('📍'),
     color: { background: cssVar('--accent'), border: cssVar('--accent') }, borderWidth: 3,
     size: hubId === 'local' ? 22 : 16, font: { color: cssVar('--text') },
   }]
@@ -105,13 +125,14 @@ function buildGraphData(res) {
     const isGw = h.ip === gwHint
     const cat = catOf(h)
     counts[cat] = (counts[cat] || 0) + 1
-    // Icône matériel (grande) + anneau coloré fin par type.
+    // Nœud épuré : icône matériel + nom court. Détails au survol et dans la fiche.
     const color = isGw ? cssVar('--orange') : styleFor(cat).color
     const title = h.name || h.hostname || ''
     const detail = h.model || h.manufacturer || h.vendor || h.mac || ''
-    const label = [title || h.ip, title ? h.ip : '', detail].filter(Boolean).join('\n')
+    const tip = [title, h.ip, cat, detail].filter(Boolean).join('<br>')
     nodes.push({
-      id: h.ip, label, shape: 'image', image: emojiImg(typeIcon(cat)),
+      id: h.ip, label: title || h.ip, title: tip,
+      shape: 'image', image: emojiImg(typeIcon(cat)),
       color: { background: color, border: color },
       borderWidth: isGw ? 4 : 3, size: isGw ? 26 : 18, font: { color: cssVar('--text') },
     })
@@ -355,6 +376,34 @@ function onIfaceChange() {
   scan()
 }
 
+// Exécute une action du menu « ⋯ » puis referme le menu.
+function runMenu(fn) {
+  fn()
+  if (menuEl.value) menuEl.value.open = false
+}
+
+// Séparateur redimensionnable entre l'arbre et le graphe.
+function startDrag(e) {
+  e.preventDefault()
+  const move = (ev) => {
+    if (!splitEl.value) return
+    const rect = splitEl.value.getBoundingClientRect()
+    treeW.value = Math.max(200, Math.min(560, ev.clientX - rect.left))
+  }
+  const up = () => {
+    document.removeEventListener('mousemove', move)
+    document.removeEventListener('mouseup', up)
+    try {
+      localStorage.setItem('nc.treeW', String(Math.round(treeW.value)))
+    } catch {
+      /* ignoré */
+    }
+    if (network) network.redraw()
+  }
+  document.addEventListener('mousemove', move)
+  document.addEventListener('mouseup', up)
+}
+
 onMounted(() => {
   loadInterfaces()
   scan()
@@ -374,26 +423,29 @@ onBeforeUnmount(() => {
         <span v-if="phase" class="phase">{{ phase }}</span>
       </div>
       <div class="controls">
+        <input v-model="filter" class="filter" placeholder="🔎 Rechercher (nom, IP, type…)"
+          aria-label="Rechercher un appareil" />
         <select v-model="state.selectedIface" class="iface" @change="onIfaceChange"
-          aria-label="Interface réseau à scanner" title="Mode Universel : forcer l'interface (défaut : auto)">
+          aria-label="Interface réseau à scanner" title="Interface à scanner (défaut : auto)">
           <option value="">Auto{{ autoName ? ' (' + autoName + ')' : '' }}</option>
           <option v-for="i in ifaces" :key="i.name" :value="i.name">{{ i.name }} · {{ i.ipv4 }}</option>
         </select>
-        <input v-model="filter" class="filter" placeholder="Filtrer (nom/IP/type…)"
-          aria-label="Filtrer les hôtes" />
-        <div class="seg" role="group" aria-label="Disposition du graphe">
-          <button :class="{ on: layoutMode === 'star' }" @click="setLayout('star')" title="Graphe en étoile">Étoile</button>
-          <button :class="{ on: layoutMode === 'tree' }" @click="setLayout('tree')" title="Graphe hiérarchique (uplinks)">Hiérarchie</button>
-        </div>
-        <label class="auto" title="Rescan automatique toutes les 15 s, nouveaux hôtes surlignés">
-          <input type="checkbox" v-model="autoRefresh" /> Auto
-        </label>
-        <button @click="addNeighbors" :disabled="nbBusy" title="Découvrir les voisins LLDP/CDP par SNMP">
-          {{ nbBusy ? '…' : 'Voisins' }}
-        </button>
-        <button class="ghost" @click="exportPNG" title="Exporter la carte en image">PNG</button>
-        <button class="ghost" @click="exportCSV" title="Exporter l'inventaire en CSV">CSV</button>
-        <button class="primary" @click="scan" :disabled="busy">{{ busy ? 'Scan…' : 'Rescanner' }}</button>
+        <button class="primary" @click="scan" :disabled="busy">{{ busy ? 'Analyse…' : 'Analyser' }}</button>
+        <details ref="menuEl" class="menu">
+          <summary class="menubtn" title="Plus d'options" aria-label="Plus d'options">⋯</summary>
+          <div class="menupop">
+            <div class="menugrp">Disposition du graphe</div>
+            <div class="seg" role="group">
+              <button :class="{ on: layoutMode === 'tree' }" @click="setLayout('tree')">Hiérarchie</button>
+              <button :class="{ on: layoutMode === 'star' }" @click="setLayout('star')">Étoile</button>
+            </div>
+            <label class="mitem"><input type="checkbox" v-model="autoRefresh" /> Rafraîchir auto (15 s)</label>
+            <button class="mitem" @click="runMenu(addNeighbors)" :disabled="nbBusy">Découvrir les voisins (LLDP/CDP)</button>
+            <div class="menugrp">Export</div>
+            <button class="mitem" @click="runMenu(exportPNG)">Exporter la carte (PNG)</button>
+            <button class="mitem" @click="runMenu(exportCSV)">Exporter l'inventaire (CSV)</button>
+          </div>
+        </details>
       </div>
     </div>
     <p v-if="err" class="err">{{ err }}</p>
@@ -405,12 +457,19 @@ onBeforeUnmount(() => {
       </button>
       <button v-if="activeType" class="leg-clear" @click="activeType = ''">✕ tout afficher</button>
     </div>
-    <div class="split">
-      <div class="treepane">
-        <div class="treehdr">Arborescence</div>
+    <div ref="splitEl" class="split">
+      <div class="treepane" :style="{ flexBasis: treeW + 'px', width: treeW + 'px' }">
+        <div class="treehdr">
+          <span>Inventaire <b>{{ count }}</b></span>
+          <div class="seg sm" role="group" aria-label="Regroupement de l'inventaire">
+            <button :class="{ on: groupMode === 'uplink' }" @click="groupMode = 'uplink'" title="Hiérarchie L2 (uplinks)">Hiérarchie</button>
+            <button :class="{ on: groupMode === 'type' }" @click="groupMode = 'type'" title="Regrouper par type d'appareil">Par type</button>
+          </div>
+        </div>
         <TopologyTree :hosts="hostsRef" :gateway="gwRef" :filter="filter"
-          :active-type="activeType" @select="onTreeSelect" />
+          :active-type="activeType" :group="groupMode" @select="onTreeSelect" />
       </div>
+      <div class="divider" @mousedown="startDrag" title="Glisser pour redimensionner"></div>
       <div class="viewarea">
         <div class="canvas-wrap">
           <div ref="el" class="canvas"></div>
@@ -438,23 +497,40 @@ onBeforeUnmount(() => {
 .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .seg button { border: none; border-radius: 0; padding: 0.35rem 0.6rem; font-size: 0.82rem; background: transparent; color: var(--muted); }
 .seg button.on { background: var(--accent); color: #04101f; }
-.auto { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.82rem; color: var(--muted); }
-.ghost { font-size: 0.82rem; padding: 0.35rem 0.55rem; }
+.seg.sm button { padding: 0.15rem 0.4rem; font-size: 0.68rem; }
+/* Menu « ⋯ » */
+.menu { position: relative; }
+.menu > summary { list-style: none; cursor: pointer; padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: 8px; color: var(--text); }
+.menu > summary::-webkit-details-marker { display: none; }
+.menupop {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 230px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4); padding: 0.4rem; display: flex; flex-direction: column; gap: 0.2rem;
+}
+.menugrp { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); padding: 0.35rem 0.4rem 0.1rem; }
+.mitem {
+  display: flex; align-items: center; gap: 0.4rem; text-align: left; width: 100%;
+  border: none; background: transparent; color: var(--text); padding: 0.4rem 0.4rem; border-radius: 6px; font-size: 0.85rem; cursor: pointer;
+}
+.mitem:hover { background: var(--panel-2); }
+.menupop .seg { margin: 0.1rem 0.4rem 0.3rem; }
 .split { flex: 1; min-height: 0; display: flex; }
-.treepane {
-  flex: 0 0 300px; width: 300px; min-height: 0; display: flex; flex-direction: column;
-  border-right: 1px solid var(--border);
-}
+.treepane { min-height: 0; display: flex; flex-direction: column; flex-shrink: 0; }
 .treehdr {
-  flex: 0 0 auto; padding: 0.35rem 0.8rem; font-size: 0.72rem; text-transform: uppercase;
+  flex: 0 0 auto; padding: 0.4rem 0.8rem; font-size: 0.72rem; text-transform: uppercase;
   letter-spacing: 0.03em; color: var(--muted); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
 }
+.treehdr b { color: var(--text); }
+.divider { flex: 0 0 6px; cursor: col-resize; background: var(--border); opacity: 0.5; }
+.divider:hover { opacity: 1; background: var(--accent); }
 .viewarea { position: relative; flex: 1; min-width: 0; min-height: 0; }
 .canvas-wrap { position: absolute; inset: 0; }
 .canvas { height: 100%; min-height: 0; }
 @media (max-width: 900px) {
   .split { flex-direction: column; }
-  .treepane { flex: 0 0 40%; width: auto; border-right: none; border-bottom: 1px solid var(--border); }
+  .treepane { flex: 0 0 40% !important; width: auto !important; border-bottom: 1px solid var(--border); }
+  .divider { display: none; }
 }
 .empty {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
