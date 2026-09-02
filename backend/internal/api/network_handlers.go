@@ -33,8 +33,19 @@ func registerNetwork(mux *http.ServeMux, v *vault.Vault) {
 		writeJSON(w, http.StatusOK, map[string]any{"interface": ifi, "gateway": gw})
 	})
 
+	mux.HandleFunc("GET /api/network/interfaces", func(w http.ResponseWriter, r *http.Request) {
+		auto := ""
+		if ifi, err := netinfo.LocalInterface(); err == nil {
+			auto = ifi.Name
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"interfaces": netinfo.ListInterfaces(),
+			"auto":       auto,
+		})
+	})
+
 	mux.HandleFunc("GET /api/network/radar", func(w http.ResponseWriter, r *http.Request) {
-		ifi, err := netinfo.LocalInterface()
+		ifi, err := resolveInterface(r.URL.Query().Get("iface"))
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
@@ -187,6 +198,17 @@ func publicIP() string {
 		return ""
 	}
 	return strings.TrimSpace(string(b))
+}
+
+// resolveInterface renvoie l'interface demandée par nom (Mode Universel), ou
+// l'auto-détection si le nom est vide/introuvable.
+func resolveInterface(name string) (models.InterfaceInfo, error) {
+	if name != "" {
+		if ifi, ok := netinfo.InterfaceByName(name); ok {
+			return ifi, nil
+		}
+	}
+	return netinfo.LocalInterface()
 }
 
 // quickRTTms mesure un RTT TCP best-effort vers l'hôte (ms), -1 si injoignable.

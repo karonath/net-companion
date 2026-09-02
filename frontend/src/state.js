@@ -5,6 +5,7 @@ import { reactive } from 'vue'
 export const state = reactive({
   sim: { enabled: false, ssh: '', demoMac: '', user: '' },
   selectedHost: null, // { ip, mac, vendor, isGateway }
+  selectedIface: '', // '' = auto (Mode Universel : nom d'interface pour forcer)
   prefill: { configDiffIp: '', diagHost: '', tab: '' },
 })
 
