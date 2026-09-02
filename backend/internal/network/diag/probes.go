@@ -49,17 +49,48 @@ func CheckGateway(d Dialer, gw string) Check {
 	return c
 }
 
-// CheckDNS vérifie la résolution d'un nom et mesure sa durée.
+// CheckDNS vérifie la résolution d'un nom et mesure sa durée. Affiche l'IPv4 en
+// priorité (plus familière) et signale la présence d'une IPv6 ainsi qu'un DNS lent.
 func CheckDNS(r Resolver, name string) Check {
 	c := Check{Name: "Résolution DNS"}
 	start := time.Now()
 	addrs, err := r.LookupHost(name)
+	ms := time.Since(start).Milliseconds()
 	if err != nil || len(addrs) == 0 {
 		c.Status, c.Detail = StatusFail, fmt.Sprintf("échec de résolution de %s", name)
 		return c
 	}
+	var ipv4, ipv6 string
+	for _, a := range addrs {
+		ip := net.ParseIP(a)
+		if ip == nil {
+			continue
+		}
+		if ip.To4() != nil {
+			if ipv4 == "" {
+				ipv4 = a
+			}
+		} else if ipv6 == "" {
+			ipv6 = a
+		}
+	}
+	shown := ipv4
+	if shown == "" {
+		shown = addrs[0]
+	}
+	detail := fmt.Sprintf("%s → %s", name, shown)
+	if ipv4 != "" && ipv6 != "" {
+		detail += " (IPv4 + IPv6)"
+	} else if ipv6 != "" {
+		detail += " (IPv6)"
+	}
+	detail += fmt.Sprintf(" en %d ms", ms)
 	c.Status = StatusOK
-	c.Detail = fmt.Sprintf("%s → %s (%d ms)", name, addrs[0], time.Since(start).Milliseconds())
+	if ms > 400 {
+		c.Status = StatusWarn
+		detail += " — DNS lent"
+	}
+	c.Detail = detail
 	return c
 }
 

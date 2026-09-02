@@ -95,7 +95,7 @@ func DemoDiagSuite() []diag.Check {
 		{Name: "Serveurs DNS", Status: diag.StatusOK, Detail: "10.10.0.11 (2 ms), 1.1.1.1 (10 ms) [démo]"},
 		{Name: "Passerelle joignable", Status: diag.StatusOK, Detail: DemoGateway + " joignable (port 443) [démo]"},
 		{Name: "Latence passerelle", Status: diag.StatusOK, Detail: DemoGateway + ":443 : 1 ms (jitter 0 ms, perte 0%) [démo]"},
-		{Name: "Résolution DNS", Status: diag.StatusOK, Detail: "example.com → 93.184.216.34 (12 ms) [démo]"},
+		{Name: "Résolution DNS", Status: diag.StatusOK, Detail: "example.com → 93.184.216.34 (IPv4 + IPv6) en 12 ms [démo]"},
 		{Name: "Accès Internet", Status: diag.StatusOK, Detail: "connecté à 1.1.1.1:443 [démo]"},
 		{Name: "Latence Internet", Status: diag.StatusOK, Detail: "1.1.1.1:443 : 9 ms (jitter 2 ms, perte 0%) [démo]"},
 		{Name: "Perte de paquets", Status: diag.StatusOK, Detail: "0% de perte vers 1.1.1.1 (5 paquets ICMP) [démo]"},
