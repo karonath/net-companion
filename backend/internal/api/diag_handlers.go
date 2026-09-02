@@ -6,11 +6,16 @@ import (
 
 	"netcompanion/internal/network/diag"
 	"netcompanion/internal/network/netinfo"
+	"netcompanion/internal/sim"
 )
 
 // registerDiag ajoute les routes de diagnostics de connectivité.
 func registerDiag(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/diag", func(w http.ResponseWriter, r *http.Request) {
+		if sim.Current().Enabled {
+			writeJSON(w, http.StatusOK, map[string]any{"checks": sim.DemoDiagSuite()})
+			return
+		}
 		gw, _ := netinfo.DefaultGateway()
 		writeJSON(w, http.StatusOK, map[string]any{"checks": diag.RunSuite(gw)})
 	})
@@ -25,6 +30,12 @@ func registerDiag(mux *http.ServeMux) {
 		if body.Host == "" {
 			writeError(w, http.StatusBadRequest, errors.New("host requis"))
 			return
+		}
+		if sim.Current().Enabled {
+			if checks := sim.DemoHostDiag(body.Host); checks != nil {
+				writeJSON(w, http.StatusOK, map[string]any{"checks": checks})
+				return
+			}
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"checks": diag.RunHostSuite(body.Host)})
 	})

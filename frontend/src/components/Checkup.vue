@@ -58,6 +58,19 @@ async function downloadJson(id) {
   }
 }
 
+async function clearHistory() {
+  if (!window.confirm("Vider tout l'historique des checks ? Cette action est irréversible.")) return
+  err.value = ''
+  try {
+    await api.clearHistory()
+    hist.value = []
+    snap.value = null
+    changes.value = null
+  } catch (e) {
+    err.value = friendlyError(e, "Vidage de l'historique impossible.")
+  }
+}
+
 function fmt(ts) {
   return new Date(ts).toLocaleString()
 }
@@ -117,7 +130,10 @@ onMounted(loadHistory)
     </div>
 
     <div v-if="hist.length" class="history">
-      <h4>Historique</h4>
+      <div class="hist-head">
+        <h4>Historique</h4>
+        <button class="link danger-link" @click="clearHistory">Vider l'historique</button>
+      </div>
       <ul>
         <li v-for="m in hist" :key="m.id">
           <button class="link" @click="openReport(m.id)">{{ fmt(m.timestamp) }}</button>
@@ -147,4 +163,6 @@ h4 { margin: 1rem 0 0.5rem; font-size: 0.9rem; }
 .removed { color: var(--red); }
 .warn { color: var(--orange); }
 .link { border: none; background: transparent; color: var(--accent); padding: 0; cursor: pointer; }
+.hist-head { display: flex; align-items: center; justify-content: space-between; }
+.danger-link { color: var(--red); font-size: 0.82rem; }
 </style>

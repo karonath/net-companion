@@ -11,6 +11,7 @@ import (
 	"netcompanion/internal/models"
 	"netcompanion/internal/network/diag"
 	"netcompanion/internal/network/netinfo"
+	"netcompanion/internal/sim"
 	"netcompanion/internal/vault"
 )
 
@@ -31,16 +32,26 @@ func registerCheckup(mux *http.ServeMux, v *vault.Vault) {
 			_ = json.NewDecoder(r.Body).Decode(&meta) // corps optionnel
 		}
 
-		ifi, _ := netinfo.LocalInterface()
-		gw, _ := netinfo.DefaultGateway()
-
+		var ifi models.InterfaceInfo
+		var gw string
 		var hosts []models.Host
 		var checks []diag.Check
-		var wg sync.WaitGroup
-		wg.Add(2)
-		go func() { defer wg.Done(); hosts = runRadar(ifi, v) }()
-		go func() { defer wg.Done(); checks = diag.RunSuite(gw) }()
-		wg.Wait()
+
+		// Mode démo : check du réseau d'entreprise simulé.
+		if sim.Current().Enabled {
+			ifi = sim.DemoInterface()
+			gw = sim.DemoGateway
+			hosts = sim.DemoHosts()
+			checks = sim.DemoDiagSuite()
+		} else {
+			ifi, _ = netinfo.LocalInterface()
+			gw, _ = netinfo.DefaultGateway()
+			var wg sync.WaitGroup
+			wg.Add(2)
+			go func() { defer wg.Done(); hosts = runRadar(ifi, v) }()
+			go func() { defer wg.Done(); checks = diag.RunSuite(gw) }()
+			wg.Wait()
+		}
 
 		now := time.Now()
 		snap := history.Snapshot{
@@ -67,6 +78,14 @@ func registerCheckup(mux *http.ServeMux, v *vault.Vault) {
 			return
 		}
 		writeJSON(w, http.StatusOK, metas)
+	})
+
+	mux.HandleFunc("DELETE /api/history", func(w http.ResponseWriter, r *http.Request) {
+		if err := store.Clear(); err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"cleared": true})
 	})
 
 	mux.HandleFunc("GET /api/history/{id}", func(w http.ResponseWriter, r *http.Request) {

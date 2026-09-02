@@ -49,6 +49,11 @@ func registerNetwork(mux *http.ServeMux, v *vault.Vault) {
 	})
 
 	mux.HandleFunc("GET /api/network/radar", func(w http.ResponseWriter, r *http.Request) {
+		// Mode démo : topologie d'entreprise simulée (tout le logiciel bascule dessus).
+		if sim.Current().Enabled {
+			writeJSON(w, http.StatusOK, sim.DemoRadar())
+			return
+		}
 		ifi, err := resolveInterface(r.URL.Query().Get("iface"))
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err)
@@ -67,6 +72,13 @@ func registerNetwork(mux *http.ServeMux, v *vault.Vault) {
 			writeError(w, http.StatusBadRequest, errors.New("paramètre ip requis"))
 			return
 		}
+		// Mode démo : infos simulées pour les hôtes du parc de démonstration.
+		if sim.Current().Enabled {
+			if hostname, latency, ok := sim.DemoHostInfo(ip); ok {
+				writeJSON(w, http.StatusOK, map[string]any{"ip": ip, "hostname": hostname, "latencyMs": latency})
+				return
+			}
+		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"ip":        ip,
 			"hostname":  netinfo.ReverseDNS(ip),
@@ -82,7 +94,7 @@ func registerNetwork(mux *http.ServeMux, v *vault.Vault) {
 		if !decodeJSON(w, r, &body) {
 			return
 		}
-		if body.Demo {
+		if body.Demo || sim.Current().Enabled {
 			writeJSON(w, http.StatusOK, map[string]any{"neighbors": neighbors.FromSNMP(sim.DemoSNMPClient())})
 			return
 		}
@@ -117,7 +129,7 @@ func registerNetwork(mux *http.ServeMux, v *vault.Vault) {
 			return
 		}
 		// Mode démo : interroge le switch simulé (client SNMP simulé), sans coffre.
-		if body.Demo {
+		if body.Demo || sim.Current().Enabled {
 			target := body.TargetMAC
 			if target == "" {
 				target = sim.DemoMAC

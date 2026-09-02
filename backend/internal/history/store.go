@@ -64,6 +64,23 @@ func (s *Store) List() ([]Meta, error) {
 	return metas, nil
 }
 
+// Clear supprime tous les snapshots de l'historique.
+func (s *Store) Clear() error {
+	entries, err := os.ReadDir(s.dir)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".json") {
+			_ = os.Remove(filepath.Join(s.dir, e.Name()))
+		}
+	}
+	return nil
+}
+
 // Get lit un snapshot par son id.
 func (s *Store) Get(id string) (Snapshot, error) {
 	data, err := os.ReadFile(filepath.Join(s.dir, id+".json"))

@@ -98,6 +98,7 @@ export const api = {
   configBaseline: (device, id) => req('POST', '/api/config/baseline', { device, id }),
   configDrift: (device) => req('GET', '/api/config/drift?device=' + encodeURIComponent(device)),
   history: () => req('GET', '/api/history'),
+  clearHistory: () => req('DELETE', '/api/history'),
 
   // Rapport : récupéré par en-tête (jeton hors URL) puis ouvert/téléchargé via
   // un Blob local.
