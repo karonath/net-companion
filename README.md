@@ -213,6 +213,13 @@ Si `NC_CLOUD_URL` ou `NC_CLOUD_KEY` est absent, aucune donnée ne quitte le post
 La remontée est asynchrone et sans impact sur le diagnostic local : en cas
 d'indisponibilité réseau, le snapshot reste disponible en local.
 
+**Backend de consolidation.** L'endpoint d'ingestion, le stockage et le tableau
+de bord central (agrégation multi-clients, multi-techniciens) vivent dans un
+dépôt distinct, entièrement décrit en Infrastructure as Code :
+[net-companion-cloud](https://github.com/karonath/net-companion-cloud) (Terraform,
+AWS Lambda, S3, DynamoDB). L'outil de terrain et son backend évoluent
+indépendamment : l'agent reste utilisable seul, le cloud n'est qu'une extension.
+
 ## Architecture
 
 ```
