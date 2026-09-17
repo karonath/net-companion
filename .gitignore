@@ -22,3 +22,6 @@ release/net-companion
 
 # Notes de conception internes (non publiees)
 docs/notes-internes/
+
+# Worktrees isoles (developpement)
+.worktrees/
