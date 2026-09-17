@@ -11,6 +11,8 @@ administrateur, et **sans qu'aucune donnée ne quitte le poste**.
 
 *Auteur : **Charlys Menuet** (Karonath). — Logiciel **propriétaire**, tous droits réservés (voir [`LICENSE`](LICENSE)).*
 
+📥 **Télécharger** : [dernière version Windows x64](https://github.com/karonath/net-companion/releases/latest) — binaire portable, sans installation ni droits admin.
+
 ![Net-Companion Lite — radar, inventaire typé et fiche appareil (mode démo : réseau d'entreprise simulé)](docs/images/net-companion-radar.png)
 
 > *Radar & inventaire : découverte, identification typée (pare-feu, switch, serveur,
@@ -43,6 +45,8 @@ administrateur, et **sans qu'aucune donnée ne quitte le poste**.
 - 🗺️ **Voisinage LLDP/CDP** — les liens **switch-à-switch** réels (SNMP).
 - 🧬 **Config-Diff & dérive** — repère les modifications de configuration **non
   sauvegardées** (running vs startup) et la **dérive** vis-à-vis d'une baseline (SSH).
+- 🚧 **Contournement de blocage (NAC)** — rester opérationnel sur une prise
+  verrouillée : usurpation d'adresse MAC (droits admin, à la demande).
 - 🔐 **Coffre-fort d'identifiants** — SNMP/SSH chiffrés (AES-256-GCM), protégés
   par un code PIN, réutilisés automatiquement.
 - 🧪 **Mode démo** — un **réseau d'entreprise simulé** complet : toutes les
@@ -85,7 +89,7 @@ plateforme de supervision continue (il ne remplace pas Prometheus/Zabbix/Datadog
 
 ## Prise en main (sans matériel)
 
-1. Copier le binaire sur une clé USB, le lancer → l'interface s'ouvre dans le navigateur.
+1. [Télécharger le binaire](https://github.com/karonath/net-companion/releases/latest), le copier sur une clé USB, le lancer → l'interface s'ouvre dans le navigateur.
 2. Créer un **code PIN** (il chiffre les identifiants sur le poste).
 3. Cliquer **« Mode démo »** : un réseau d'entreprise **simulé** démarre — tout se
    teste sans matériel. Sur chaque écran, l'aide **« À quoi ça sert ? »** explique.
@@ -195,7 +199,7 @@ Le script compile le frontend puis produit **un seul fichier**
 > Le binaire n'est pas signé : SmartScreen peut alerter au premier lancement sous
 > Windows. Pour une diffusion large, signer avec `signtool` (Windows) ou GPG (Linux).
 
-### Remontée cloud (optionnelle)
+## Remontée cloud (optionnelle)
 
 Par défaut, Net-Companion fonctionne entièrement en local. Pour consolider les
 snapshots d'intervention sur un tableau de bord central, définir les variables
@@ -277,7 +281,8 @@ sur le voisinage **par SNMP**.
 - **Application mobile** dédiée (habillage de l'interface, appairage par QR code).
 - **Signature et distribution** du binaire (suppression des alertes SmartScreen).
 - **Validation sur matériel réel** (SNMPv3, LLDP/CDP, SSH) en complément du simulateur.
-- **Multi-sites / profils** clients avec historique et baselines dédiés.
+- **Multi-sites / profils clients** avec historique et baselines dédiés —
+  *consolidation multi-clients déjà amorcée côté [backend cloud](https://github.com/karonath/net-companion-cloud)*.
 - **Intégrations** : export vers ticketing, Slack/Teams, ou une supervision.
 
 ---
