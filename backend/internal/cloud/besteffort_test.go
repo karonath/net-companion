@@ -10,7 +10,7 @@ import (
 )
 
 type flakyPusher struct {
-	calls    atomic.Int32
+	calls     atomic.Int32
 	failFirst int32
 }
 
@@ -31,7 +31,7 @@ func TestPushBestEffortRetriesThenSucceeds(t *testing.T) {
 }
 
 func TestPushBestEffortGivesUpAfterThree(t *testing.T) {
-	p := &flakyPusher{failFirst: 99} // échoue toujours
+	p := &flakyPusher{failFirst: 99}                  // échoue toujours
 	PushBestEffort(p, history.Snapshot{ID: "x"}, nil) // ne doit pas paniquer/bloquer
 	if got := p.calls.Load(); got != 3 {
 		t.Fatalf("attendu 3 tentatives max, obtenu %d", got)

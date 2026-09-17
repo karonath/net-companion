@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"os"
 	"sync"
@@ -68,8 +69,13 @@ func registerCheckup(mux *http.ServeMux, v *vault.Vault) {
 
 		// Remontée cloud optionnelle, non-bloquante (le snapshot est déjà en local).
 		if cfg := cloud.ConfigFromEnv(); cfg.Enabled() {
-			pusher := cloud.NewPusher(cfg, nil)
-			go cloud.PushBestEffort(pusher, snap, nil)
+			if cfg.Complete() {
+				pusher := cloud.NewPusher(cfg, nil)
+				go cloud.PushBestEffort(pusher, snap, nil)
+			} else {
+				slog.Warn("remontée cloud configurée mais client/site manquant — snapshot conservé en local, pas de remontée",
+					"clientId", cfg.ClientID, "siteId", cfg.SiteID)
+			}
 		}
 
 		var changes *history.Changes

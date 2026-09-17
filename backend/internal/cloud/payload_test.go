@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"netcompanion/internal/network/health"
 	"netcompanion/internal/history"
+	"netcompanion/internal/network/health"
 )
 
 func TestBuildPayloadMapsSummary(t *testing.T) {

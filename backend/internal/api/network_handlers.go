@@ -13,8 +13,8 @@ import (
 	"netcompanion/internal/network/arp"
 	"netcompanion/internal/network/arptable"
 	"netcompanion/internal/network/discovery"
-	"netcompanion/internal/network/netinfo"
 	"netcompanion/internal/network/neighbors"
+	"netcompanion/internal/network/netinfo"
 	"netcompanion/internal/network/oui"
 	"netcompanion/internal/network/portfinder"
 	"netcompanion/internal/network/radar"
@@ -181,6 +181,7 @@ func registerNetwork(mux *http.ServeMux, v *vault.Vault) {
 //  3. inventaire SNMP de la passerelle (entreprise) : table ARP du routeur/switch,
 //     incluant les appareils que le PC ne peut pas joindre directement ;
 //  4. identification précise (mDNS/SSDP/NetBIOS/bannières) pour nommer et typer.
+//
 // Un appareil totalement muet (téléphone en veille profonde qui ignore l'ARP)
 // n'est visible que par l'étape 3 (la passerelle le connaît).
 func runRadar(ifi models.InterfaceInfo, v *vault.Vault) []models.Host {
