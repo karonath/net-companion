@@ -195,6 +195,24 @@ Le script compile le frontend puis produit **un seul fichier**
 > Le binaire n'est pas signé : SmartScreen peut alerter au premier lancement sous
 > Windows. Pour une diffusion large, signer avec `signtool` (Windows) ou GPG (Linux).
 
+### Remontée cloud (optionnelle)
+
+Par défaut, Net-Companion fonctionne entièrement en local. Pour consolider les
+snapshots d'intervention sur un tableau de bord central, définir les variables
+d'environnement suivantes (côté technicien, jamais dans le binaire) :
+
+| Variable | Rôle |
+|---|---|
+| `NC_CLOUD_URL` | endpoint d'ingestion HTTPS |
+| `NC_CLOUD_KEY` | clé d'API du technicien |
+| `NC_CLIENT_ID` | identifiant du client de l'intervention |
+| `NC_SITE_ID` | identifiant du site |
+| `NC_TECH_ID` | identifiant technicien (optionnel) |
+
+Si `NC_CLOUD_URL` ou `NC_CLOUD_KEY` est absent, aucune donnée ne quitte le poste.
+La remontée est asynchrone et sans impact sur le diagnostic local : en cas
+d'indisponibilité réseau, le snapshot reste disponible en local.
+
 ## Architecture
 
 ```
