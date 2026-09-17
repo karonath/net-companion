@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"netcompanion/internal/cloud"
 	"netcompanion/internal/history"
 	"netcompanion/internal/models"
 	"netcompanion/internal/network/diag"
@@ -64,6 +65,12 @@ func registerCheckup(mux *http.ServeMux, v *vault.Vault) {
 
 		prev, hasPrev := store.Latest()
 		_ = store.Save(snap)
+
+		// Remontée cloud optionnelle, non-bloquante (le snapshot est déjà en local).
+		if cfg := cloud.ConfigFromEnv(); cfg.Enabled() {
+			pusher := cloud.NewPusher(cfg, nil)
+			go cloud.PushBestEffort(pusher, snap, nil)
+		}
 
 		var changes *history.Changes
 		if hasPrev {
